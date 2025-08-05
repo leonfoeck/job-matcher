@@ -1,0 +1,23 @@
+# Node / Next / Nest
+node_modules/
+.next/
+dist/
+
+# Monorepo / pnpm
+pnpm-lock.yaml
+apps/*/node_modules/
+apps/*/pnpm-lock.yaml
+packages/*/node_modules/
+packages/*/pnpm-lock.yaml
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Env & local config
+.env
+.env.*
+apps/*/.env
+apps/*/.env.*
+infra/docker/.data/
