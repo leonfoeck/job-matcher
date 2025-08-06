@@ -21,3 +21,4 @@ packages/*/pnpm-lock.yaml
 apps/*/.env
 apps/*/.env.*
 infra/docker/.data/
+**/pnpm-lock.yaml.*
