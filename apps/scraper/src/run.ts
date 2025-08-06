@@ -14,6 +14,7 @@ async function main() {
     jobs.push(...await fetchGreenhouse('Isar Aerospace', 'https://boards-api.greenhouse.io/v1/boards/isaraerospace/jobs'));
     jobs.push(...await fetchPersonio('OroraTech', 'https://ororatech.jobs.personio.de/xml'));
     jobs.push(...await fetchPersonio('GridX', 'https://gridx.jobs.personio.de/xml'));
+    jobs.push(...await fetchPersonio('GridX', 'https://deepdrive.jobs.personio.de/xml'));
     // ----------------------------
 
     console.log(`Found ${jobs.length} jobs. Sending to API...`);
