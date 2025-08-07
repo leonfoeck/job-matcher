@@ -1,7 +1,11 @@
 'use client';
 import { useState } from 'react';
 
-export default function IngestForm({ onDone }: { onDone?: () => void }) {
+interface IngestFormProps {
+    onDone?: () => void;
+}
+
+export default function IngestForm({ onDone }: Readonly<IngestFormProps>) {
     const [companiesText, setCompaniesText] = useState('Isar Aerospace\nOroraTech\nGridX');
     const [websiteText, setWebsiteText] = useState('');
     const [loading, setLoading] = useState(false);
@@ -34,12 +38,12 @@ export default function IngestForm({ onDone }: { onDone?: () => void }) {
     return (
         <form onSubmit={onRun} className="space-y-3 border rounded p-4">
             <div>
-                <label className="block font-semibold mb-1">Companies (one per line)</label>
-                <textarea className="w-full border rounded p-2 h-28" value={companiesText} onChange={e=>setCompaniesText(e.target.value)} />
+                <label htmlFor="companies" className="block font-semibold mb-1">Companies (one per line)</label>
+                <textarea id="companies" className="w-full border rounded p-2 h-28" value={companiesText} onChange={e=>setCompaniesText(e.target.value)} />
             </div>
             <div>
-                <label className="block font-semibold mb-1">Websites (optional, one per line aligned)</label>
-                <textarea className="w-full border rounded p-2 h-20" value={websiteText} onChange={e=>setWebsiteText(e.target.value)} />
+                <label htmlFor="websites" className="block font-semibold mb-1">Websites (optional, one per line aligned)</label>
+                <textarea id="websites" className="w-full border rounded p-2 h-20" value={websiteText} onChange={e=>setWebsiteText(e.target.value)} />
             </div>
             <button className="px-3 py-2 rounded bg-black text-white disabled:opacity-50" disabled={loading}>
                 {loading ? 'Fetching…' : 'Fetch jobs'}
