@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:4000   # compile-time for Next.js
+      # DATABASE_URL: postgresql://app:app@localhost:5432/app  # (only needed if you run DB in CI)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable pnpm via Corepack
+        run: corepack enable
+
+      - name: Show versions
+        run: |
+          node -v
+          pnpm -v
+
+      - name: Install deps
+        run: pnpm install --no-frozen-lockfile
+
+      # ----- Lint -----
+      - name: Lint API
+        run: pnpm --dir apps/api run lint
+
+      - name: Lint Web
+        run: pnpm --dir apps/web run lint
+
+      # ----- Typecheck -----
+      - name: Typecheck API
+        run: pnpm --dir apps/api run typecheck
+
+      - name: Typecheck Web
+        run: pnpm --dir apps/web run typecheck
+
+      # ----- Tests -----
+      - name: Test API
+        run: pnpm --dir apps/api run test
+
+      # (web has no tests yet)
+      - name: Test Web
+        run: pnpm --dir apps/web run test
+
+      # ----- Build -----
+      - name: Prisma generate (API)
+        run: pnpm --dir apps/api exec prisma generate
+
+      - name: Build API
+        run: pnpm --dir apps/api run build
+
+      - name: Build Web
+        run: pnpm --dir apps/web run build
