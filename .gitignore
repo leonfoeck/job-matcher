@@ -9,9 +9,7 @@ dist/
 apps/*/pnpm-lock.yaml
 packages/*/pnpm-lock.yaml
 apps/*/node_modules/
-apps/*/pnpm-lock.yaml
 packages/*/node_modules/
-packages/*/pnpm-lock.yaml
 
 # IDE / OS
 .idea/

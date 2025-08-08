@@ -1,17 +1,18 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { JobsService } from './jobs.service';
+import { JobsQueryDto } from './jobs.dto';
 
 @Controller('jobs')
 export class JobsController {
-    constructor(private readonly svc: JobsService) {}
+    constructor(private readonly jobs: JobsService) {}
 
     @Get()
-    getAll() {
-        return this.svc.list();
+    list(@Query() q: JobsQueryDto) {
+        return this.jobs.list(q);
     }
 
-    @Post('bulk')
-    bulk(@Body() body: { jobs: any[] }) {
-        return this.svc.upsertMany(body?.jobs ?? []);
+    @Get(':id')
+    findOne(@Param('id', ParseIntPipe) id: number) {
+        return this.jobs.findOne(id);
     }
 }

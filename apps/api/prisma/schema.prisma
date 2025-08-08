@@ -16,6 +16,8 @@ model Company {
   source  String
   baseUrl String?
   jobs    JobPost[]
+
+  @@index([name])
 }
 
 model JobPost {
@@ -27,7 +29,55 @@ model JobPost {
   seniority String?
   postedAt  DateTime?
   scrapedAt DateTime @default(now())
-  rawText    String    @default("")
-  processed  Boolean   @default(false)
-  company    Company   @relation(fields: [companyId], references: [id])
+  rawText   String   @default("")
+  processed Boolean  @default(false)
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@index([postedAt])
+  @@index([title])
+  @@index([scrapedAt])
 }
+
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  profile       Profile?
+}
+
+model Profile {
+  id         Int          @id @default(autoincrement())
+  userId     Int          @unique
+  headline   String?
+  summary    String?
+  skills     String?      // csv
+  projects   Project[]
+  experiences Experience[]
+  user       User         @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id         Int      @id @default(autoincrement())
+  profileId  Int
+  name       String
+  link       String?
+  tech       String?
+  description String?
+  profile    Profile  @relation(fields: [profileId], references: [id])
+}
+
+model Experience {
+  id         Int      @id @default(autoincrement())
+  profileId  Int
+  company    String
+  title      String
+  start      String?  // keep as string (YYYY-MM)
+  end        String?
+  description String?
+  tech       String?
+  profile    Profile  @relation(fields: [profileId], references: [id])
+}
+
