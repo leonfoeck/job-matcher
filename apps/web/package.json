@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo \"(no web tests yst)\""
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "test": "echo \"(no web tests yet)\""
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.0",

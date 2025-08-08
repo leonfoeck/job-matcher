@@ -33,29 +33,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 1) Node (no pnpm cache here!)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+          check-latest: true
 
-      # 🔧 Install pnpm (this is the bit you were missing)
+      # 2) Install pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.14.0
           run_install: false
 
-      - name: Show versions
-        run: |
-          node -v
-          pnpm -v
+      # 3) Cache pnpm *store* (works across workspaces)
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "PNPM_STORE=$(pnpm store path --silent)" >> $GITHUB_ENV
 
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PNPM_STORE }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # 4) Install deps
       - name: Install deps (root)
         run: pnpm install --frozen-lockfile
 
-      # Prisma client is needed for API build/type-check
+      # 5) Prisma client for API (needed for typecheck/build)
       - name: Prisma generate (API)
         run: pnpm --dir apps/api exec prisma generate
 
