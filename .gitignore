@@ -4,7 +4,10 @@ node_modules/
 dist/
 
 # Monorepo / pnpm
-pnpm-lock.yaml
+# keep the root lockfile, ignore nested ones
+!pnpm-lock.yaml
+apps/*/pnpm-lock.yaml
+packages/*/pnpm-lock.yaml
 apps/*/node_modules/
 apps/*/pnpm-lock.yaml
 packages/*/node_modules/
