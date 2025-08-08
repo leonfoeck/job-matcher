@@ -23,3 +23,7 @@ apps/*/.env
 apps/*/.env.*
 infra/docker/.data/
 **/pnpm-lock.yaml.*
+
+apps/api/prisma/*.js
+apps/api/prisma/*.js.map
+
