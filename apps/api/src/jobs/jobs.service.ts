@@ -3,46 +3,30 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { JobsQueryDto } from './jobs.dto';
 import { Prisma } from '@prisma/client';
-
-type IngestJob = {
-  company: string;
-  title: string;
-  url: string;
-  location?: string;
-  seniority?: string;
-  postedAt?: string | Date;
-  rawText?: string;
-  source?: string; // lives on Company in your schema
-  baseUrl?: string; // optional helper
-};
+import type { IngestJob } from '../ingest/ingest.types';
 
 @Injectable()
 export class JobsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {} // readonly
 
   async list(q: JobsQueryDto) {
     const { page = 1, limit = 20 } = q;
     const skip = (page - 1) * limit;
 
-    // ---- filters
     const where: Prisma.JobPostWhereInput = {};
 
-    if (q.title) {
-      where.title = { contains: q.title, mode: 'insensitive' };
-    }
+    if (q.title) where.title = { contains: q.title, mode: 'insensitive' };
 
-    // filter on nested company fields
     if (q.company || q.source) {
-      where.company = {};
+      const companyWhere: Prisma.CompanyWhereInput = {};
       if (q.company) {
-        (where.company as any).name = {
-          contains: q.company,
-          mode: 'insensitive',
-        };
+        companyWhere.name = { contains: q.company, mode: 'insensitive' };
       }
       if (q.source) {
-        (where.company as any).source = { equals: q.source };
+        companyWhere.source = { equals: q.source };
       }
+      // XOR<CompanyRelationFilter, CompanyWhereInput> → hier CompanyWhereInput:
+      where.company = companyWhere;
     }
 
     if (q.onlyStudent === 'true') {
@@ -59,7 +43,6 @@ export class JobsService {
       where.postedAt = { gte, lte };
     }
 
-    // ---- sorting (default by scrapedAt desc)
     let orderBy:
       | Prisma.JobPostOrderByWithRelationInput
       | Prisma.JobPostOrderByWithRelationInput[] = { scrapedAt: 'desc' };
@@ -70,11 +53,11 @@ export class JobsService {
       if (fieldRaw === 'company') {
         orderBy = [{ company: { name: dir } }];
       } else if (
-        ['title', 'postedAt', 'scrapedAt', 'location', 'seniority'].includes(
-          fieldRaw,
-        )
+        (
+          ['title', 'postedAt', 'scrapedAt', 'location', 'seniority'] as const
+        ).includes(fieldRaw as any)
       ) {
-        orderBy = { [fieldRaw]: dir } as any;
+        orderBy = { [fieldRaw]: dir } as Prisma.JobPostOrderByWithRelationInput;
       }
     }
 
@@ -102,8 +85,8 @@ export class JobsService {
     };
   }
 
-  // NEW: used by IngestService
   async upsertMany(jobs: IngestJob[]) {
+    // typisiert
     const inserted: string[] = [];
     const updated: string[] = [];
 
@@ -112,7 +95,6 @@ export class JobsService {
         const company = await tx.company.upsert({
           where: { name: j.company },
           update: {
-            // only update if provided to avoid overwriting with null
             ...(j.source ? { source: j.source } : {}),
             ...(j.baseUrl ? { baseUrl: j.baseUrl } : {}),
           },

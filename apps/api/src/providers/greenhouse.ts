@@ -1,5 +1,6 @@
 import { slugCandidates, fetchWithTimeout } from './slug.util';
 import { htmlToText } from '../ingest/html.util';
+import type { IngestJob } from '../ingest/ingest.types';
 
 export type GreenhouseMatch = { board: string; apiUrl: string };
 
@@ -43,7 +44,7 @@ async function mapWithLimit<T, R>(
 export async function fetchGreenhouseJobs(
   company: string,
   match: GreenhouseMatch,
-) {
+): Promise<IngestJob[]> {
   const r = await fetchWithTimeout(match.apiUrl, 8000);
   if (!r.ok) return [];
   const data = await r.json();

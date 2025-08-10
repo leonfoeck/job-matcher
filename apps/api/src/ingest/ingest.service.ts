@@ -1,17 +1,20 @@
+// apps/api/src/ingest/ingest.service.ts
 import { Injectable } from '@nestjs/common';
 import { JobsService } from '../jobs/jobs.service';
 import { detectPersonio, fetchPersonioJobs } from '../providers/personio';
 import { detectGreenhouse, fetchGreenhouseJobs } from '../providers/greenhouse';
 import { detectLever, fetchLeverJobs } from '../providers/lever';
+import type { IngestJob } from './ingest.types';
 
 export type CompanyInput = { name: string; website?: string };
 
 @Injectable()
 export class IngestService {
-  constructor(private jobs: JobsService) {}
+  constructor(private readonly jobs: JobsService) {}
 
   async run(companies: CompanyInput[]) {
-    const results: any[] = [];
+    const results: Array<Record<string, unknown>> = [];
+
     for (const c of companies) {
       const name = c.name.trim();
       if (!name) continue;
@@ -19,19 +22,17 @@ export class IngestService {
       let matched = false;
       let total = 0;
 
-      // Personio
       try {
         const m = await detectPersonio(name, c.website);
         if (m) {
-          const jobs = await fetchPersonioJobs(name, m);
-          total += jobs.length;
-          console.log(jobs);
-          await this.jobs.upsertMany(jobs as any);
+          const list: IngestJob[] = await fetchPersonioJobs(name, m);
+          total += list.length;
+          await this.jobs.upsertMany(list);
           results.push({
             company: name,
             provider: 'personio',
             slug: m.slug,
-            count: jobs.length,
+            count: list.length,
           });
           matched = true;
         }
@@ -39,19 +40,17 @@ export class IngestService {
         results.push({ company: name, provider: 'personio', error: String(e) });
       }
 
-      // Greenhouse
       try {
         const m = await detectGreenhouse(name, c.website);
         if (m) {
-          const jobs = await fetchGreenhouseJobs(name, m);
-          total += jobs.length;
-          console.log(jobs);
-          await this.jobs.upsertMany(jobs as any);
+          const list: IngestJob[] = await fetchGreenhouseJobs(name, m);
+          total += list.length;
+          await this.jobs.upsertMany(list);
           results.push({
             company: name,
             provider: 'greenhouse',
             board: m.board,
-            count: jobs.length,
+            count: list.length,
           });
           matched = true;
         }
@@ -63,18 +62,17 @@ export class IngestService {
         });
       }
 
-      // Lever
       try {
         const m = await detectLever(name, c.website);
         if (m) {
-          const jobs = await fetchLeverJobs(name, m);
-          total += jobs.length;
-          await this.jobs.upsertMany(jobs as any);
+          const list: IngestJob[] = await fetchLeverJobs(name, m);
+          total += list.length;
+          await this.jobs.upsertMany(list);
           results.push({
             company: name,
             provider: 'lever',
             account: m.account,
-            count: jobs.length,
+            count: list.length,
           });
           matched = true;
         }
@@ -82,15 +80,17 @@ export class IngestService {
         results.push({ company: name, provider: 'lever', error: String(e) });
       }
 
-      if (!matched)
+      if (!matched) {
         results.push({
           company: name,
           provider: null,
           count: 0,
           note: 'no provider detected',
         });
+      }
       results.push({ company: name, total });
     }
+
     return { results };
   }
 }
