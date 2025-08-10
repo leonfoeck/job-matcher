@@ -18,9 +18,7 @@ export class LocalAuthGuard extends AuthGuard('local') {
       whitelist: true,
       forbidUnknownValues: false,
     });
-    if (errors.length) {
-      throw new BadRequestException(errors);
-    }
+    if (errors.length) throw new BadRequestException(errors);
     return (await super.canActivate(context)) as boolean;
   }
 }

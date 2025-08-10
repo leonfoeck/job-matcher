@@ -5,11 +5,9 @@ import {
   HttpStatus,
   Post,
   Request,
-  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './auth.dto';
-import { LocalAuthGuard } from './local-auth.guard';
+import { RegisterDto } from './auth.dto';
 import { AuthResponse, RequestWithUser } from './types';
 
 @Controller('auth')
@@ -22,14 +20,10 @@ export class AuthController {
   }
 
   // Passport Local reads credentials from req.body; DTO ensures validation runs.
-  @UseGuards(LocalAuthGuard)
+  // auth.controller.ts
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Request() req: RequestWithUser, // populated by LocalStrategy
-    // Keep this param so class-validator runs; it won’t be used directly:
-    @Body() _body: LoginDto,
-  ): Promise<AuthResponse> {
+  async login(@Request() req: RequestWithUser): Promise<AuthResponse> {
     return this.authService.login(req.user);
   }
 }

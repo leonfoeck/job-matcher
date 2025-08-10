@@ -7,15 +7,17 @@ import { JwtPayload } from './types';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService) {
+    const secret = config.get<string>('JWT_SECRET');
+    if (!secret) throw new Error('JWT_SECRET missing');
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_SECRET', 'change-me-in-env'),
+      secretOrKey: secret,
     });
   }
 
-  async validate(payload: JwtPayload): Promise<JwtPayload> {
-    // Optionally, load a fresh user here and attach more data.
-    return payload; // { sub, email, iat?, exp? }
+  validate(payload: JwtPayload): JwtPayload {
+    // Optional: hier frischen User laden
+    return payload;
   }
 }
