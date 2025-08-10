@@ -71,7 +71,7 @@ export default function IngestForm({ onDone }: Readonly<IngestFormProps>) {
       >
         {loading ? 'Fetching…' : 'Fetch jobs'}
       </button>
-      {result && (
+      {result !== null && (
         <pre className="whitespace-pre-wrap text-sm bg-gray-50 border rounded p-2 overflow-auto">
           {JSON.stringify(result, null, 2)}
         </pre>

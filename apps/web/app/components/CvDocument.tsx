@@ -86,7 +86,7 @@ export default function CvDocument({
               <View key={i} style={{ marginBottom: 6 }}>
                 <View style={styles.row}>
                   <Text style={styles.bold}>{x.title}</Text>
-                  <Text className="small">
+                  <Text style={styles.small}>
                     {[x.start, x.end || 'Present'].filter(Boolean).join(' — ')}
                   </Text>
                 </View>

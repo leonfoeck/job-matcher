@@ -1,6 +1,5 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 
 type Company = { id: number; name: string; source?: string };
 type Job = {
@@ -30,14 +29,14 @@ type SortableCol = 'title' | 'company' | 'postedAt' | 'scrapedAt';
 const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
 
 export default function JobsBrowser() {
-  const [title, setTitle] = useState('');
-  const [company, setCompany] = useState('');
-  const [onlyStudent, setOnlyStudent] = useState(true);
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [title] = useState('');
+  const [company] = useState('');
+  const [onlyStudent] = useState(true);
+  const [dateFrom] = useState<string>('');
+  const [dateTo] = useState<string>('');
   const [sort, setSort] = useState<Sort>('postedAt:desc');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit] = useState(20);
 
   const [data, setData] = useState<Job[]>([]);
   const [meta, setMeta] = useState<ApiResult['meta'] | null>(null);
@@ -109,9 +108,14 @@ export default function JobsBrowser() {
           <Th label="Source" />
         </tr>
       </thead>
-      {/* ... */}
-      <td className="py-2 pr-3">{j.company?.source ?? '—'}</td>
-      {/* ... */}
+      <tbody>
+        {data.map((j) => (
+          <tr key={j.id} className="border-b hover:bg-white/5">
+            {/* ...andere Zellen... */}
+            <td className="py-2 pr-3">{j.company?.source ?? '—'}</td>
+          </tr>
+        ))}
+      </tbody>
     </div>
   );
 }
