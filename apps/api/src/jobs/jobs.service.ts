@@ -4,6 +4,16 @@ import { PrismaService } from '../prisma.service';
 import { JobsQueryDto } from './jobs.dto';
 import { Prisma } from '@prisma/client';
 import type { IngestJob } from '../ingest/ingest.types';
+type SortableField =
+  | 'title'
+  | 'postedAt'
+  | 'scrapedAt'
+  | 'location'
+  | 'seniority';
+const isSortableField = (s: string): s is SortableField =>
+  (
+    ['title', 'postedAt', 'scrapedAt', 'location', 'seniority'] as const
+  ).includes(s as SortableField);
 
 @Injectable()
 export class JobsService {
@@ -49,15 +59,29 @@ export class JobsService {
 
     if (q.sort) {
       const [fieldRaw, dirRaw] = q.sort.split(':');
-      const dir = (dirRaw || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
+      const dir: 'asc' | 'desc' =
+        (dirRaw || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
+
       if (fieldRaw === 'company') {
         orderBy = [{ company: { name: dir } }];
-      } else if (
-        (
-          ['title', 'postedAt', 'scrapedAt', 'location', 'seniority'] as const
-        ).includes(fieldRaw as any)
-      ) {
-        orderBy = { [fieldRaw]: dir } as Prisma.JobPostOrderByWithRelationInput;
+      } else if (isSortableField(fieldRaw)) {
+        switch (fieldRaw) {
+          case 'title':
+            orderBy = { title: dir };
+            break;
+          case 'postedAt':
+            orderBy = { postedAt: dir };
+            break;
+          case 'scrapedAt':
+            orderBy = { scrapedAt: dir };
+            break;
+          case 'location':
+            orderBy = { location: dir };
+            break;
+          case 'seniority':
+            orderBy = { seniority: dir };
+            break;
+        }
       }
     }
 
