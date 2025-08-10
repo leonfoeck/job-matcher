@@ -14,7 +14,7 @@ export class AppController {
         // Add more endpoints here as they're created
       },
       status: 'running',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }

@@ -4,8 +4,8 @@ import { IngestService } from './ingest.service';
 import { JobsModule } from '../jobs/jobs.module';
 
 @Module({
-    imports: [JobsModule], // <-- needed so JobsService is in scope
-    controllers: [IngestController],
-    providers: [IngestService],
+  imports: [JobsModule], // <-- needed so JobsService is in scope
+  controllers: [IngestController],
+  providers: [IngestService],
 })
 export class IngestModule {}
