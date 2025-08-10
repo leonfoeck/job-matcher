@@ -24,12 +24,19 @@ export async function detectPersonio(
   return null;
 }
 
-// -------- Helpers: enge Typen + Guards
+// -------- Helpers
 type AnyRecord = Record<string, unknown>;
 const isObj = (v: unknown): v is AnyRecord =>
   typeof v === 'object' && v !== null;
-const toStr = (v: unknown): string =>
-  typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim();
+
+// Nur erlaubte Primitive/Date in String umwandeln – keine Objekte:
+const toStr = (v: unknown): string => {
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (v instanceof Date) return v.toISOString();
+  return '';
+};
+
 const toArr = <T>(v: unknown): T[] =>
   Array.isArray(v) ? (v as T[]) : v == null ? [] : [v as T];
 
@@ -67,20 +74,28 @@ export async function fetchPersonioJobs(
       jpath === 'positions.position' || jpath === 'workzag-jobs.position',
   });
 
-  const doc: unknown = parser.parse(xml);
-  if (!isObj(doc)) return [];
+  const parsed: unknown = parser.parse(xml);
+  if (!isObj(parsed)) return [];
 
-  const positionsRaw =
-    (isObj(doc.positions) && (doc.positions as AnyRecord).position) ??
-    (isObj(doc['workzag-jobs']) &&
-      (doc['workzag-jobs'] as AnyRecord).position) ??
-    (doc as AnyRecord).position ??
-    [];
+  const root = parsed;
+
+  // positionsRaw ohne verschachtelte Ternaries holen
+  let positionsRaw: unknown = [];
+  if (isObj(root.positions) && 'position' in root.positions) {
+    positionsRaw = root.positions.position;
+  } else if (
+    isObj(root['workzag-jobs']) &&
+    'position' in root['workzag-jobs']
+  ) {
+    positionsRaw = root['workzag-jobs'].position;
+  } else if ('position' in root) {
+    positionsRaw = root.position;
+  }
 
   const arr = toArr<PersonioPosition>(positionsRaw);
 
-  const jobs: IngestJob[] = arr
-    .map((p) => {
+  return arr
+    .map<IngestJob>((p) => {
       const id = toStr(p?.id);
       const title = toStr(p?.name ?? p?.title);
       const location = toStr(p?.office ?? p?.location ?? p?.city);
@@ -108,6 +123,4 @@ export async function fetchPersonioJobs(
       };
     })
     .filter((j) => j.title && j.url);
-
-  return jobs;
 }
