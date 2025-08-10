@@ -9,5 +9,6 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
+  setupFiles: ['<rootDir>/test/setup-env.ts'],   // <-- NEU
 };
 export default config;
