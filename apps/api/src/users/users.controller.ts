@@ -1,6 +1,8 @@
+// apps/api/src/users/users.controller.ts
 import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { UpdateProfileDto } from './users.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -13,7 +15,7 @@ export class UsersController {
   }
 
   @Put('me/profile')
-  updateProfile(@Req() req: any, @Body() body: any) {
+  updateProfile(@Req() req: any, @Body() body: UpdateProfileDto) {
     return this.users.upsertProfile(req.user.sub, body);
   }
 }

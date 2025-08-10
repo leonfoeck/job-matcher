@@ -11,15 +11,24 @@ import { PrismaService } from '../prisma.service';
 
 @Module({
   imports: [
+    // Falls du Config bereits im AppModule global aufrufst, diese Zeile hier entfernen.
     ConfigModule.forRoot({ isGlobal: true }),
-    PassportModule,
+    PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'change-me-in-env'),
-        signOptions: { expiresIn: '7d' },
-      }),
       inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error(
+            'JWT_SECRET missing – set it in your environment (.env)',
+          );
+        }
+        return {
+          secret,
+          signOptions: { expiresIn: '7d' },
+        };
+      },
     }),
   ],
   controllers: [AuthController],
