@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import type { UpdateProfileDto, ProjectDto, ExperienceDto } from './users.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   findByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
@@ -31,9 +32,7 @@ export class UsersService {
     });
   }
 
-  // profile update
-  async upsertProfile(userId: number, payload: any) {
-    // simple merge (replace arrays)
+  async upsertProfile(userId: number, payload: UpdateProfileDto) {
     const {
       headline,
       summary,
@@ -41,24 +40,44 @@ export class UsersService {
       projects = [],
       experiences = [],
     } = payload ?? {};
+
     const profile = await this.prisma.profile.upsert({
       where: { userId },
       create: { userId, headline, summary, skills },
       update: { headline, summary, skills },
     });
-    // replace nested
+
+    // Replace nested
     await this.prisma.project.deleteMany({ where: { profileId: profile.id } });
     await this.prisma.experience.deleteMany({
       where: { profileId: profile.id },
     });
-    if (projects.length)
-      await this.prisma.project.createMany({
-        data: projects.map((p: any) => ({ ...p, profileId: profile.id })),
-      });
-    if (experiences.length)
+
+    const mapProject = (p: ProjectDto) => ({
+      profileId: profile.id,
+      name: p.name,
+      link: p.link ?? null,
+      tech: p.tech ?? null,
+      description: p.description ?? null,
+    });
+    const mapExperience = (e: ExperienceDto) => ({
+      profileId: profile.id,
+      company: e.company,
+      title: e.title,
+      start: e.start ?? null,
+      end: e.end ?? null,
+      description: e.description ?? null,
+      tech: e.tech ?? null,
+    });
+
+    if (projects.length) {
+      await this.prisma.project.createMany({ data: projects.map(mapProject) });
+    }
+    if (experiences.length) {
       await this.prisma.experience.createMany({
-        data: experiences.map((e: any) => ({ ...e, profileId: profile.id })),
+        data: experiences.map(mapExperience),
       });
+    }
 
     return this.getMe(userId);
   }
