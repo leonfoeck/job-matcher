@@ -1,62 +1,51 @@
-// @ts-check
-import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
-import globals from 'globals';
-import prettierRecommended from 'eslint-plugin-prettier/recommended';
+import tseslint from "typescript-eslint";
+import js from "@eslint/js";
+import prettier from "eslint-config-prettier";
+import globals from "globals";
 
 export default tseslint.config(
-  // Ignore build artifacts & config & prisma JS
-  {
-    ignores: [
-      'node_modules/**',
-      'dist/**',
-      'coverage/**',
-      'eslint.config.mjs',
-      'prisma/*.js',
-      'prisma/*.js.map',
-    ],
-  },
+  { ignores: ["dist", "node_modules"] },
 
-  // Base JS rules for any .js you keep around
+  // Typed Lint NUR für src/**
   {
-    ...js.configs.recommended,
-    files: ['**/*.{js,mjs,cjs}'],
-    languageOptions: {
-      sourceType: 'commonjs',
-      globals: globals.node,
-    },
-  },
-
-  // Base configuration for TypeScript files
-  {
-    files: ['**/*.ts'],
+    files: ["src/**/*.ts"],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        project: true, // Automatically find tsconfig.json
+        project: ["./tsconfig.eslint.json"],
         tsconfigRootDir: import.meta.dirname,
+        sourceType: "module"
       },
-      globals: {
-        ...globals.node,
-        ...globals.jest,
-      },
+      globals: globals.node
     },
-  },
-
-  // Recommended type-checked rules
-  ...tseslint.configs.recommendedTypeChecked,
-
-  // Our project-specific TS settings & rules
-  {
-    files: ['**/*.ts'],
+    plugins: { "@typescript-eslint": tseslint.plugin },
+    extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked, prettier],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      'prettier/prettier': 'error',
-    },
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }]
+    }
   },
 
-  // Prettier last
-  prettierRecommended,
+  // Tests UNtyped (keine project-Option, keine typed rules)
+  {
+    files: ["test/**/*.ts", "**/*.spec.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        // bewusst KEIN "project"
+        tsconfigRootDir: import.meta.dirname,
+        sourceType: "module"
+      },
+      globals: { ...globals.node, ...globals.jest }
+    },
+    plugins: { "@typescript-eslint": tseslint.plugin },
+    extends: [js.configs.recommended, ...tseslint.configs.recommended, prettier],
+    rules: {
+      "@typescript-eslint/await-thenable": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-return": "off"
+    }
+  }
 );

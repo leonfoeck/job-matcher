@@ -14,9 +14,9 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
-    });
+  it('should return API info', () => {
+    const res = appController.getApiInfo();
+    expect(res.message).toBe('Job Matcher API');
+    expect(res).toHaveProperty('status', 'running');
   });
 });
