@@ -1,34 +1,38 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Request,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt.guard';
-import { UsersService } from '../users/users.service';
+import { LoginDto, RegisterDto } from './auth.dto';
+import { LocalAuthGuard } from './local-auth.guard';
+import { AuthResponse, RequestWithUser } from './types';
 
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private auth: AuthService,
-    private users: UsersService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  register(@Body() body: any) {
-    return this.auth.register(
-      String(body.email),
-      String(body.password),
-      body.name ? String(body.name) : undefined,
-    );
+  async register(@Body() body: RegisterDto): Promise<AuthResponse> {
+    return this.authService.register(body.email, body.password, body.name);
   }
 
+  // Passport Local reads credentials from req.body; DTO ensures validation runs.
+  @UseGuards(LocalAuthGuard)
   @Post('login')
-  login(@Body() body: any) {
-    return this.auth.login(String(body.email), String(body.password));
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('me')
-  async me(@Req() req: any) {
-    const userId = req.user.sub as number;
-    const full = await this.users.getMe(userId);
-    return full;
+  @HttpCode(HttpStatus.OK)
+  async login(
+    @Request() req: RequestWithUser, // populated by LocalStrategy
+    // Keep this param so class-validator runs; it won’t be used directly:
+    @Body() _body: LoginDto,
+  ): Promise<AuthResponse> {
+    return this.authService.login(req.user);
   }
 }
