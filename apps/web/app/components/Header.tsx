@@ -1,28 +1,28 @@
-'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { cookies } from 'next/headers';
+import LogoutButton from './LogoutButton';
 
-export default function Header() {
-  const path = usePathname();
+export default async function Header() {
+  const store = await cookies();
+  const token = store.get('authToken')?.value;
+
   return (
-    <header className="border-b border-gray-700 bg-black/40 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-gray-700 bg-black/50 backdrop-blur supports-[backdrop-filter]:bg-black/40">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="font-bold">
           Job Matcher
         </Link>
         <nav className="space-x-4 text-sm">
-          <Link href="/" className={path === '/' ? 'underline' : ''}>
-            Jobs
-          </Link>
-          <Link href="/profile" className={path.startsWith('/profile') ? 'underline' : ''}>
-            Profile
-          </Link>
-          <Link href="/login" className={path === '/login' ? 'underline' : ''}>
-            Login
-          </Link>
-          <Link href="/register" className={path === '/register' ? 'underline' : ''}>
-            Register
-          </Link>
+          <Link href="/">Jobs</Link>
+          {token ? (
+            <>
+              <Link href="/profile">Profile</Link>
+              <LogoutButton />
+            </>
+          ) : (
+            // only Login when logged out
+            <Link href="/login">Login</Link>
+          )}
         </nav>
       </div>
     </header>

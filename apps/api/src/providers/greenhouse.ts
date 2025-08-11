@@ -82,7 +82,7 @@ export async function fetchGreenhouseJobs(
       if (dr.ok) {
         const d: unknown = await dr.json().catch(() => null);
         if (isObj(d) && typeof d.content === 'string') {
-          rawText = htmlToText(d.content);
+          rawText = d.content;
         }
       }
     } catch {

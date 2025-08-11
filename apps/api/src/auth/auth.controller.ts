@@ -1,14 +1,8 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Request,
-} from '@nestjs/common';
+// apps/api/src/auth/auth.controller.ts
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './auth.dto';
-import { AuthResponse, RequestWithUser } from './types';
+import { RegisterDto, LoginDto } from './auth.dto';
+import { AuthResponse } from './types';
 
 @Controller('auth')
 export class AuthController {
@@ -19,11 +13,11 @@ export class AuthController {
     return this.authService.register(body.email, body.password, body.name);
   }
 
-  // Passport Local reads credentials from req.body; DTO ensures validation runs.
-  // auth.controller.ts
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Request() req: RequestWithUser): Promise<AuthResponse> {
-    return this.authService.login(req.user);
+  async login(@Body() body: LoginDto): Promise<AuthResponse> {
+    // prüft Email/Passwort und gibt ein “safe” User-Objekt zurück
+    const user = await this.authService.validateUser(body.email, body.password);
+    return this.authService.login(user);
   }
 }

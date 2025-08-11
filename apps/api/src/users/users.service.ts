@@ -58,7 +58,7 @@ export class UsersService {
       name: p.name,
       link: p.link ?? null,
       tech: p.tech ?? null,
-      description: p.description ?? null,
+      description: p.description ?? [],   // <- array
     });
     const mapExperience = (e: ExperienceDto) => ({
       profileId: profile.id,
@@ -66,7 +66,7 @@ export class UsersService {
       title: e.title,
       start: e.start ?? null,
       end: e.end ?? null,
-      description: e.description ?? null,
+      description: e.description ?? [],   // <- array
       tech: e.tech ?? null,
     });
 

@@ -4,6 +4,7 @@ import { JobsService } from '../jobs/jobs.service';
 import { detectPersonio, fetchPersonioJobs } from '../providers/personio';
 import { detectGreenhouse, fetchGreenhouseJobs } from '../providers/greenhouse';
 import { detectLever, fetchLeverJobs } from '../providers/lever';
+import { normalizeDomain } from './html.util';
 import type { IngestJob } from './ingest.types';
 
 export type CompanyInput = { name: string; website?: string };
@@ -17,7 +18,11 @@ export class IngestService {
 
     for (const c of companies) {
       const name = c.name.trim();
+      const website = c.website?.trim();
       if (!name) continue;
+
+      // compute once
+      const domainForCompany = normalizeDomain(website ?? null) ?? undefined;
 
       let matched = false;
       let total = 0;
@@ -25,7 +30,10 @@ export class IngestService {
       try {
         const m = await detectPersonio(name, c.website);
         if (m) {
-          const list: IngestJob[] = await fetchPersonioJobs(name, m);
+          let list: IngestJob[] = await fetchPersonioJobs(name, m);
+          if (domainForCompany) {
+            list = list.map(j => ({ ...j, domain: domainForCompany }));
+          }
           total += list.length;
           await this.jobs.upsertMany(list);
           results.push({
@@ -43,7 +51,10 @@ export class IngestService {
       try {
         const m = await detectGreenhouse(name, c.website);
         if (m) {
-          const list: IngestJob[] = await fetchGreenhouseJobs(name, m);
+          let list = await fetchGreenhouseJobs(name, m);
+          if (domainForCompany) {
+            list = list.map(j => ({ ...j, domain: domainForCompany }));
+          }
           total += list.length;
           await this.jobs.upsertMany(list);
           results.push({
@@ -65,7 +76,10 @@ export class IngestService {
       try {
         const m = await detectLever(name, c.website);
         if (m) {
-          const list: IngestJob[] = await fetchLeverJobs(name, m);
+          let list = await fetchLeverJobs(name, m);
+          if (domainForCompany) {
+            list = list.map(j => ({ ...j, domain: domainForCompany }));
+          }
           total += list.length;
           await this.jobs.upsertMany(list);
           results.push({

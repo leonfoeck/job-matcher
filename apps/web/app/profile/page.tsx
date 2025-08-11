@@ -1,14 +1,15 @@
 'use client';
+
 import { useCallback, useEffect, useState } from 'react';
 import { getAuthTokenClient } from '../lib/auth';
 
-type Project = { name: string; link?: string; tech?: string; description?: string };
+type Project = { name: string; link?: string; tech?: string; description?: string[] };
 type Experience = {
   company: string;
   title: string;
   start?: string;
   end?: string;
-  description?: string;
+  description?: string[];       // <-- array
   tech?: string;
 };
 type Profile = {
@@ -22,14 +23,11 @@ type Me = {
   id: number;
   email: string;
   name?: string;
-  profile?: {
-    headline?: string;
-    summary?: string;
-    skills?: string;
-    projects: Project[];
-    experiences: Experience[];
-  };
+  profile?: Profile;
 };
+
+const toStrArray = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map(x => String(x)) : (typeof v === 'string' && v.length ? [v] : []);
 
 export default function ProfilePage() {
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
@@ -41,22 +39,30 @@ export default function ProfilePage() {
     const token = getAuthTokenClient();
     if (!token) return;
     const r = await fetch(`${api}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
-    if (r.ok) {
-      const j: Me = await r.json();
-      setMe(j);
-      setP({
-        headline: j.profile?.headline ?? '',
-        summary: j.profile?.summary ?? '',
-        skills: j.profile?.skills ?? '',
-        projects: j.profile?.projects ?? [],
-        experiences: j.profile?.experiences ?? [],
-      });
-    }
+    if (!r.ok) return;
+
+    const j: Me = await r.json();
+    setMe(j);
+
+    const projects = (j.profile?.projects ?? []).map(pr => ({
+      ...pr,
+      description: toStrArray((pr as any).description),
+    }));
+    const experiences = (j.profile?.experiences ?? []).map(ex => ({
+      ...ex,
+      description: toStrArray((ex as any).description),
+    }));
+
+    setP({
+      headline: j.profile?.headline ?? '',
+      summary: j.profile?.summary ?? '',
+      skills: j.profile?.skills ?? '',
+      projects,
+      experiences,
+    });
   }, [api]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function save() {
     setMsg(undefined);
@@ -67,31 +73,55 @@ export default function ProfilePage() {
       headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(p),
     });
-    if (r.ok) {
-      setMsg('Saved');
-      await load();
-    } else {
-      setMsg('Save failed');
-    }
+    setMsg(r.ok ? 'Saved' : 'Save failed');
+    if (r.ok) await load();
   }
 
+  // ---- helpers for projects
   const setProj = (i: number, patch: Partial<Project>) =>
-    setP((prev) => ({
+    setP(prev => ({
       ...prev,
       projects: prev.projects.map((x, idx) => (idx === i ? { ...x, ...patch } : x)),
     }));
-  const addProj = () => setP((prev) => ({ ...prev, projects: [...prev.projects, { name: '' }] }));
+  const addProj = () => setP(prev => ({ ...prev, projects: [...prev.projects, { name: '', description: [] }] }));
   const rmProj = (i: number) =>
-    setP((prev) => ({ ...prev, projects: prev.projects.filter((_, idx) => idx !== i) }));
+    setP(prev => ({ ...prev, projects: prev.projects.filter((_, idx) => idx !== i) }));
+
+  const addProjBullet = (i: number) =>
+    setProj(i, { description: [...(p.projects[i].description ?? []), ''] });
+  const setProjBullet = (i: number, bi: number, value: string) =>
+    setProj(i, {
+      description: (p.projects[i].description ?? []).map((s, idx) => (idx === bi ? value : s)),
+    });
+  const rmProjBullet = (i: number, bi: number) =>
+    setProj(i, {
+      description: (p.projects[i].description ?? []).filter((_, idx) => idx !== bi),
+    });
+
+  // ---- helpers for experiences
   const setExp = (i: number, patch: Partial<Experience>) =>
-    setP((prev) => ({
+    setP(prev => ({
       ...prev,
       experiences: prev.experiences.map((x, idx) => (idx === i ? { ...x, ...patch } : x)),
     }));
   const addExp = () =>
-    setP((prev) => ({ ...prev, experiences: [...prev.experiences, { company: '', title: '' }] }));
+    setP(prev => ({
+      ...prev,
+      experiences: [...prev.experiences, { company: '', title: '', description: [] }],
+    }));
   const rmExp = (i: number) =>
-    setP((prev) => ({ ...prev, experiences: prev.experiences.filter((_, idx) => idx !== i) }));
+    setP(prev => ({ ...prev, experiences: prev.experiences.filter((_, idx) => idx !== i) }));
+
+  const addExpBullet = (i: number) =>
+    setExp(i, { description: [...(p.experiences[i].description ?? []), ''] });
+  const setExpBullet = (i: number, bi: number, value: string) =>
+    setExp(i, {
+      description: (p.experiences[i].description ?? []).map((s, idx) => (idx === bi ? value : s)),
+    });
+  const rmExpBullet = (i: number, bi: number) =>
+    setExp(i, {
+      description: (p.experiences[i].description ?? []).filter((_, idx) => idx !== bi),
+    });
 
   return (
     <div className="space-y-6">
@@ -121,15 +151,15 @@ export default function ProfilePage() {
         />
       </section>
 
+      {/* Projects */}
       <section className="space-y-3">
         <div className="flex justify-between items-center">
           <h2 className="font-semibold">Projects</h2>
-          <button className="text-sm px-2 py-1 border rounded" onClick={addProj}>
-            + Add
-          </button>
+          <button className="text-sm px-2 py-1 border rounded" onClick={addProj}>+ Add</button>
         </div>
+
         {p.projects.map((proj, i) => (
-          <div key={i} className="border rounded p-3 space-y-2">
+          <div key={i} className="border rounded p-3 space-y-3">
             <input
               className="w-full border rounded p-2 bg-transparent"
               placeholder="Project name"
@@ -148,30 +178,50 @@ export default function ProfilePage() {
               value={proj.tech || ''}
               onChange={(e) => setProj(i, { tech: e.target.value })}
             />
-            <textarea
-              className="w-full border rounded p-2 bg-transparent"
-              placeholder="Description"
-              value={proj.description || ''}
-              onChange={(e) => setProj(i, { description: e.target.value })}
-            />
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Description bullets</h4>
+                <button className="text-sm px-2 py-1 border rounded" onClick={() => addProjBullet(i)}>
+                  + Add bullet
+                </button>
+              </div>
+              {(proj.description ?? []).map((line, bi) => (
+                <div key={bi} className="flex gap-2">
+                  <input
+                    className="flex-1 border rounded p-2 bg-transparent"
+                    placeholder="Bullet point"
+                    value={line}
+                    onChange={(e) => setProjBullet(i, bi, e.target.value)}
+                  />
+                  <button className="text-sm px-2 py-1 border rounded" onClick={() => rmProjBullet(i, bi)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {(!proj.description || proj.description.length === 0) && (
+                <p className="text-xs text-gray-500">No bullets yet.</p>
+              )}
+            </div>
+
             <div className="flex justify-end">
               <button className="text-sm px-2 py-1 border rounded" onClick={() => rmProj(i)}>
-                Remove
+                Remove project
               </button>
             </div>
           </div>
         ))}
       </section>
 
+      {/* Experience */}
       <section className="space-y-3">
         <div className="flex justify-between items-center">
           <h2 className="font-semibold">Experience</h2>
-          <button className="text-sm px-2 py-1 border rounded" onClick={addExp}>
-            + Add
-          </button>
+          <button className="text-sm px-2 py-1 border rounded" onClick={addExp}>+ Add</button>
         </div>
+
         {p.experiences.map((x, i) => (
-          <div key={i} className="border rounded p-3 space-y-2">
+          <div key={i} className="border rounded p-3 space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
               <input
                 className="border rounded p-2 bg-transparent"
@@ -198,21 +248,42 @@ export default function ProfilePage() {
                 onChange={(e) => setExp(i, { end: e.target.value })}
               />
             </div>
+
             <input
               className="w-full border rounded p-2 bg-transparent"
               placeholder="Tech"
               value={x.tech || ''}
               onChange={(e) => setExp(i, { tech: e.target.value })}
             />
-            <textarea
-              className="w-full border rounded p-2 bg-transparent"
-              placeholder="What you did"
-              value={x.description || ''}
-              onChange={(e) => setExp(i, { description: e.target.value })}
-            />
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Description bullets</h4>
+                <button className="text-sm px-2 py-1 border rounded" onClick={() => addExpBullet(i)}>
+                  + Add bullet
+                </button>
+              </div>
+              {(x.description ?? []).map((line, bi) => (
+                <div key={bi} className="flex gap-2">
+                  <input
+                    className="flex-1 border rounded p-2 bg-transparent"
+                    placeholder="Bullet point"
+                    value={line}
+                    onChange={(e) => setExpBullet(i, bi, e.target.value)}
+                  />
+                  <button className="text-sm px-2 py-1 border rounded" onClick={() => rmExpBullet(i, bi)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {(!x.description || x.description.length === 0) && (
+                <p className="text-xs text-gray-500">No bullets yet.</p>
+              )}
+            </div>
+
             <div className="flex justify-end">
               <button className="text-sm px-2 py-1 border rounded" onClick={() => rmExp(i)}>
-                Remove
+                Remove experience
               </button>
             </div>
           </div>
@@ -220,19 +291,8 @@ export default function ProfilePage() {
       </section>
 
       <div className="flex items-center gap-3">
-        <button className="px-3 py-2 border rounded" onClick={save}>
-          Save
-        </button>
+        <button className="px-3 py-2 border rounded" onClick={save}>Save</button>
         {msg && <span className="text-sm text-gray-400">{msg}</span>}
-        <button
-          className="px-3 py-2 border rounded"
-          onClick={() => {
-            document.cookie = 'authToken=; Max-Age=0; Path=/';
-            location.href = '/';
-          }}
-        >
-          Logout
-        </button>
       </div>
     </div>
   );

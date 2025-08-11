@@ -5,6 +5,7 @@ import {
   MaxLength,
   IsArray,
   ValidateNested,
+  ArrayMaxSize
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -12,15 +13,23 @@ export class ProjectDto {
   @IsString() name!: string;
   @IsOptional() @IsString() link?: string;
   @IsOptional() @IsString() tech?: string;
-  @IsOptional() @IsString() description?: string;
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(50)
+  description?: string[];
 }
 
 export class ExperienceDto {
   @IsString() company!: string;
   @IsString() title!: string;
-  @IsOptional() @IsString() start?: string; // YYYY-MM
-  @IsOptional() @IsString() end?: string; // YYYY-MM
-  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsString() start?: string;
+  @IsOptional() @IsString() end?: string;
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(100)
+  description?: string[];
   @IsOptional() @IsString() tech?: string;
 }
 

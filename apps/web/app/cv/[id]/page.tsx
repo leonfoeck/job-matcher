@@ -16,13 +16,14 @@ type Job = {
   postedAt?: string;
   company?: Company;
 };
-type Project = { name: string; link?: string; tech?: string; description?: string };
+
+type Project = { name: string; link?: string; tech?: string; description?: string[] };
 type Experience = {
   company: string;
   title: string;
   start?: string;
   end?: string;
-  description?: string;
+  description?: string[];
   tech?: string;
 };
 type Profile = {
@@ -36,6 +37,10 @@ type Profile = {
 type Me = { email: string; name?: string; profile?: Profile };
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
+
+// coerce backend values to string[]
+const toStrArray = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map(String) : typeof v === 'string' && v.trim() ? [v] : [];
 
 export default function CvForJobPage() {
   const params = useParams<{ id: string }>();
@@ -53,28 +58,40 @@ export default function CvForJobPage() {
     let mounted = true;
     async function load() {
       try {
+        // job
         const jr = await fetch(`${apiBase}/jobs/${id}`, { cache: 'no-store' });
         if (!jr.ok) throw new Error('Job not found');
         const j: Job = await jr.json();
         if (!mounted) return;
         setJob(j);
 
+        // me/profile
         const token = getAuthTokenClient();
         if (token) {
-          const mr = await fetch(`${apiBase}/auth/me`, {
+          const mr = await fetch(`${apiBase}/users/me`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (mr.ok) {
             const m: Me = await mr.json();
             if (!mounted) return;
             setMe(m);
+
+            const projects = (m.profile?.projects ?? []).map((p: any) => ({
+              ...p,
+              description: toStrArray(p?.description),
+            }));
+            const experiences = (m.profile?.experiences ?? []).map((x: any) => ({
+              ...x,
+              description: toStrArray(x?.description),
+            }));
+
             const p: Profile = {
               name: m.name || '',
               headline: m.profile?.headline || '',
               summary: m.profile?.summary || '',
               skills: m.profile?.skills || '',
-              projects: m.profile?.projects || [],
-              experiences: m.profile?.experiences || [],
+              projects,
+              experiences,
             };
             setProfile(p);
             setPickProj(new Array(p.projects.length).fill(true));
@@ -85,7 +102,7 @@ export default function CvForJobPage() {
         if (mounted) setLoading(false);
       }
     }
-    if (Number.isFinite(id)) load();
+    if (Number.isFinite(id)) void load();
     return () => {
       mounted = false;
     };
@@ -114,7 +131,7 @@ export default function CvForJobPage() {
         target={{
           jobTitle: job.title,
           company: job.company?.name,
-          jobDescription: textForPdf, // <- pass text, not HTML
+          jobDescription: textForPdf, // pass text to PDF
         }}
       />,
     ).toBlob();
@@ -151,10 +168,7 @@ export default function CvForJobPage() {
         )}
         <div className="border rounded p-3 h-96 overflow-auto">
           {safeHtml ? (
-            <div
-              className="prose prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: safeHtml }}
-            />
+            <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: safeHtml }} />
           ) : (
             <p className="text-sm opacity-90">No description available.</p>
           )}
@@ -179,15 +193,12 @@ export default function CvForJobPage() {
           </div>
         )}
 
+        {/* Projects */}
         <section>
           <h3 className="font-semibold mb-2">Projects</h3>
           {profile.projects.length === 0 ? (
             <p className="text-sm text-gray-500">
-              No projects. Add some in your{' '}
-              <a className="underline" href="/profile">
-                Profile
-              </a>
-              .
+              No projects. Add some in your <a className="underline" href="/profile">Profile</a>.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -198,9 +209,7 @@ export default function CvForJobPage() {
                     className="mt-1"
                     checked={!!pickProj[i]}
                     onChange={(e) =>
-                      setPickProj((prev) =>
-                        prev.map((v, idx) => (idx === i ? e.target.checked : v)),
-                      )
+                      setPickProj(prev => prev.map((v, idx) => (idx === i ? e.target.checked : v)))
                     }
                   />
                   <div>
@@ -208,7 +217,13 @@ export default function CvForJobPage() {
                     <div className="text-sm text-gray-400">
                       {[p.link, p.tech].filter(Boolean).join(' • ')}
                     </div>
-                    {p.description && <div className="text-sm mt-1">{p.description}</div>}
+                    {!!(p.description && p.description.length) && (
+                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                        {p.description.map((line, bi) => (
+                          <li key={bi}>{line}</li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </li>
               ))}
@@ -216,15 +231,12 @@ export default function CvForJobPage() {
           )}
         </section>
 
+        {/* Experience */}
         <section>
           <h3 className="font-semibold mb-2">Experience</h3>
           {profile.experiences.length === 0 ? (
             <p className="text-sm text-gray-500">
-              No experience. Add some in your{' '}
-              <a className="underline" href="/profile">
-                Profile
-              </a>
-              .
+              No experience. Add some in your <a className="underline" href="/profile">Profile</a>.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -235,7 +247,7 @@ export default function CvForJobPage() {
                     className="mt-1"
                     checked={!!pickExp[i]}
                     onChange={(e) =>
-                      setPickExp((prev) => prev.map((v, idx) => (idx === i ? e.target.checked : v)))
+                      setPickExp(prev => prev.map((v, idx) => (idx === i ? e.target.checked : v)))
                     }
                   />
                   <div>
@@ -245,7 +257,13 @@ export default function CvForJobPage() {
                     <div className="text-sm text-gray-400">
                       {[x.start, x.end || 'Present'].filter(Boolean).join(' — ')}
                     </div>
-                    {x.description && <div className="text-sm mt-1">{x.description}</div>}
+                    {!!(x.description && x.description.length) && (
+                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                        {x.description.map((line, bi) => (
+                          <li key={bi}>{line}</li>
+                        ))}
+                      </ul>
+                    )}
                     {x.tech && <div className="text-xs text-gray-400 mt-1">Tech: {x.tech}</div>}
                   </div>
                 </li>

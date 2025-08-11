@@ -9,4 +9,7 @@ export type IngestJob = {
   rawText?: string;
   source?: string;
   baseUrl?: string;
+  domain?: string;
+  logoUrl?: string;
+  logoUpdatedAt?: Date;
 };

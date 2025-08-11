@@ -1,8 +1,46 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 
-type Company = { id: number; name: string; source?: string | null };
+type LogoInfo = {
+  src: string | null;
+  reason: 'explicit' | 'derived' | 'none';
+  domain?: string | null;
+  host?: string | null;
+};
+
+function getLogoInfo(company?: { logoUrl?: string | null; domain?: string | null }): LogoInfo {
+  if (!company) return { src: null, reason: 'none' };
+
+  const explicit = (company.logoUrl || '').trim();
+  if (explicit) {
+    return { src: explicit, reason: 'explicit', domain: company.domain ?? null };
+  }
+
+  const raw = (company.domain || '').trim();
+  if (!raw) return { src: null, reason: 'none', domain: null };
+
+  const host = raw.replace(/^https?:\/\//, '').split('/')[0] || null;
+  if (!host) return { src: null, reason: 'none', domain: raw, host: null };
+
+  return {
+    src: `https://logo.clearbit.com/${encodeURIComponent(host)}?size=64`,
+    reason: 'derived',
+    domain: raw,
+    host,
+  };
+}
+
+
+type Company = {
+  id: number;
+  name: string;
+  source?: string | null;
+  logoUrl?: string | null;
+  domain?: string | null;
+};
+
 type ApiJob = {
   id: number;
   title: string;
@@ -21,19 +59,11 @@ type Job = {
   location?: string;
   seniority?: string;
   postedAt?: string;
-  createdAt: string; // UI-Name
+  createdAt: string;
   source?: string;
-  company?: { id: number; name: string };
+  company?: { id: number; name: string; logoUrl?: string | null; domain?: string | null };
 };
 
-type ApiMeta = {
-  total: number;
-  page: number;
-  limit: number;
-  pageCount: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-};
 
 type ApiResult = { data: ApiJob[]; meta: ApiMeta };
 
@@ -62,6 +92,10 @@ export default function JobsBrowser() {
   const [sort, setSort] = useState<Sort>('postedAt:desc');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
+  const [showDebug, setShowDebug] = useState(false);
+  const [logoStatus, setLogoStatus] = useState<Record<number, 'ok' | 'error' | 'none'>>({});
+  const [logoNote, setLogoNote] = useState<Record<number, string>>({});
+
 
   const [data, setData] = useState<Job[]>([]);
   const [meta, setMeta] = useState<ApiMeta | null>(null);
@@ -96,9 +130,17 @@ export default function JobsBrowser() {
         seniority: j.seniority ?? undefined,
         postedAt: j.postedAt ?? undefined,
         createdAt: j.scrapedAt ?? new Date().toISOString(),
-        source: j.company?.source ?? undefined, // Top-level source fürs UI
-        company: j.company ? { id: j.company.id, name: j.company.name } : undefined,
+        source: j.company?.source ?? undefined,
+        company: j.company
+          ? {
+            id: j.company.id,
+            name: j.company.name,
+            logoUrl: j.company.logoUrl ?? null,
+            domain: j.company.domain ?? null,
+          }
+          : undefined,
       }));
+
 
       setData(mapped);
       setMeta(json.meta);
@@ -129,6 +171,25 @@ export default function JobsBrowser() {
         ? (`${col}:asc` as Sort)
         : (`${col}:desc` as Sort);
     });
+  }
+
+  function deriveLogoSrc(company?: {
+    logoUrl?: string | null;
+    domain?: string | null;
+  }): string | null {
+    if (!company) return null;
+
+    const explicit = (company.logoUrl || '').trim();
+    if (explicit) return explicit;
+
+    const raw = (company.domain || '').trim();
+    if (!raw) return null;
+
+    const host = raw.replace(/^https?:\/\//, '').split('/')[0]; // hostname only
+    console.log('host', host);
+    if (!host) return null;
+
+    return `https://logo.clearbit.com/${encodeURIComponent(host)}?size=64`;
   }
 
   return (
@@ -168,6 +229,15 @@ export default function JobsBrowser() {
           />
           Only Working Student
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={showDebug}
+            onChange={(e) => setShowDebug(e.target.checked)}
+          />
+          Debug logos
+        </label>
+
 
         <select
           className="border rounded p-2 bg-transparent"
@@ -204,7 +274,6 @@ export default function JobsBrowser() {
               <Th label="Location" />
               <Th label="Seniority" />
               <Th label="Posted" col="postedAt" sort={sort} onClick={changeSort} />
-              <Th label="Source" />
             </tr>
           </thead>
           <tbody>
@@ -225,17 +294,118 @@ export default function JobsBrowser() {
             {data.map((j) => (
               <tr key={j.id} className="border-b hover:bg-white/5">
                 <td className="py-2 pr-3">
-                  <a href={j.url} target="_blank" rel="noreferrer" className="underline">
+                  <Link href={`/cv/${j.id}`} className="underline">
                     {j.title}
-                  </a>
+                  </Link>
+                  {/* tiny external link to original posting */}
+                  {j.url && (
+                    <a
+                      href={j.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-2 text-xs opacity-70"
+                    >
+                      ↗
+                    </a>
+                  )}
                 </td>
-                <td className="py-2 pr-3">{j.company?.name ?? '—'}</td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-8 h-8 rounded-full border grid place-items-center bg-gray-800 text-gray-200 shrink-0">
+                      {/* fallback initial */}
+                      <span className="text-xs">{(j.company?.name?.[0] || '?').toUpperCase()}</span>
+
+                      {/* logo overlay */}
+                      {(() => {
+                        const info = getLogoInfo(j.company);
+                        // Console diagnostics per row
+                        console.debug('logo-debug', {
+                          jobId: j.id,
+                          company: j.company?.name,
+                          info,
+                        });
+
+                        if (!info.src) {
+                          // record "none" once
+                          if (logoStatus[j.id] !== 'none') {
+                            setLogoStatus((s) => ({ ...s, [j.id]: 'none' }));
+                            setLogoNote((n) => ({
+                              ...n,
+                              [j.id]:
+                                info.reason === 'none'
+                                  ? (info.domain ? 'invalid host' : 'no logoUrl & no domain')
+                                  : '',
+                            }));
+                          }
+                          return null;
+                        }
+
+                        return (
+                          <img
+                            src={info.src}
+                            alt={`${j.company?.name ?? 'Company'} logo`}
+                            className="absolute inset-0 w-full h-full rounded-full object-cover"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            onLoad={() => {
+                              setLogoStatus((s) => ({ ...s, [j.id]: 'ok' }));
+                              setLogoNote((n) => {
+                                const { [j.id]: _, ...rest } = n;
+                                return rest; // clear note on success
+                              });
+                            }}
+                            onError={(e) => {
+                              // Hide broken image
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              setLogoStatus((s) => ({ ...s, [j.id]: 'error' }));
+                              setLogoNote((n) => ({
+                                ...n,
+                                [j.id]: `img error from ${info.reason}${
+                                  info.host ? ` (${info.host})` : ''
+                                }`,
+                              }));
+                              console.warn('logo-error', {
+                                jobId: j.id,
+                                company: j.company?.name,
+                                attemptedSrc: info.src,
+                              });
+                            }}
+                          />
+                        );
+                      })()}
+                    </div>
+                    <div className="flex flex-col">
+                      <span>{j.company?.name ?? '—'}</span>
+
+                      {/* tiny debug line */}
+                      {showDebug && (
+                        <span className="text-[10px] text-gray-400">
+          {(() => {
+            const info = getLogoInfo(j.company);
+            const status = logoStatus[j.id] || 'none';
+            const note = logoNote[j.id];
+            return [
+              `status=${status}`,
+              `reason=${info.reason}`,
+              info.domain ? `domain=${info.domain}` : null,
+              info.host ? `host=${info.host}` : null,
+              info.src ? `src=${info.src}` : null,
+              note ? `note=${note}` : null,
+            ]
+              .filter(Boolean)
+              .join(' • ');
+          })()}
+        </span>
+                      )}
+                    </div>
+                  </div>
+                </td>
+
                 <td className="py-2 pr-3">{j.location ?? '—'}</td>
                 <td className="py-2 pr-3">{j.seniority ?? '—'}</td>
                 <td className="py-2 pr-3">
                   {j.postedAt ? new Date(j.postedAt).toLocaleDateString() : '—'}
                 </td>
-                <td className="py-2 pr-3">{j.source ?? '—'}</td>
               </tr>
             ))}
           </tbody>

@@ -1,4 +1,3 @@
-// apps/web/app/login/LoginClient.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -22,8 +21,16 @@ export default function LoginClient({ next }: { next: string }) {
       });
       const json = await r.json();
       if (!r.ok) throw new Error(json?.message || 'Login failed');
-      document.cookie = `authToken=${encodeURIComponent(json.accessToken)}; Path=/; SameSite=Lax`;
-      router.push(next);
+
+      document.cookie = [
+        `authToken=${json.accessToken}`, // no encodeURIComponent
+        'Path=/',
+        'SameSite=Lax',
+        'Max-Age=2592000', // 30 days
+      ].join('; ');
+
+      router.push(next || '/profile');
+      router.refresh(); // make server header reflect new auth
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     }

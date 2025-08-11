@@ -108,8 +108,7 @@ export async function fetchPersonioJobs(
         ? `https://${match.slug}.jobs.personio.de/job/${id}`
         : toStr(p?.url ?? p?.absolute_url);
 
-      const descHtml = toStr(p?.description ?? p?.jobDescription);
-      const rawText = htmlToText(descHtml);
+      const rawText = toStr(p?.description ?? p?.jobDescription);
 
       return {
         company,

@@ -14,7 +14,9 @@ model Company {
   id      Int       @id @default(autoincrement())
   name    String    @unique
   source  String
-  baseUrl String?
+  domain  String?
+  logoUrl String?
+  logoUpdatedAt DateTime?
   jobs    JobPost[]
 
   @@index([name])
@@ -60,24 +62,25 @@ model Profile {
 }
 
 model Project {
-  id         Int      @id @default(autoincrement())
-  profileId  Int
-  name       String
-  link       String?
-  tech       String?
-  description String?
-  profile    Profile  @relation(fields: [profileId], references: [id])
+  id          Int      @id @default(autoincrement())
+  profileId   Int
+  name        String
+  link        String?
+  tech        String?
+  description String[]  @default([])   // <- array of text
+  profile     Profile  @relation(fields: [profileId], references: [id])
 }
 
 model Experience {
-  id         Int      @id @default(autoincrement())
-  profileId  Int
-  company    String
-  title      String
-  start      String?  // keep as string (YYYY-MM)
-  end        String?
-  description String?
-  tech       String?
-  profile    Profile  @relation(fields: [profileId], references: [id])
+  id          Int      @id @default(autoincrement())
+  profileId   Int
+  company     String
+  title       String
+  start       String?
+  end         String?
+  description String[]  @default([])   // <- array of text
+  tech        String?
+  profile     Profile  @relation(fields: [profileId], references: [id])
 }
+
 
