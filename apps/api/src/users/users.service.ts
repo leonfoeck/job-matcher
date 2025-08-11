@@ -41,43 +41,40 @@ export class UsersService {
       experiences = [],
     } = payload ?? {};
 
-    const profile = await this.prisma.profile.upsert({
-      where: { userId },
-      create: { userId, headline, summary, skills },
-      update: { headline, summary, skills },
-    });
-
-    // Replace nested
-    await this.prisma.project.deleteMany({ where: { profileId: profile.id } });
-    await this.prisma.experience.deleteMany({
-      where: { profileId: profile.id },
-    });
-
-    const mapProject = (p: ProjectDto) => ({
-      profileId: profile.id,
-      name: p.name,
-      link: p.link ?? null,
-      tech: p.tech ?? null,
-      description: p.description ?? null,
-    });
-    const mapExperience = (e: ExperienceDto) => ({
-      profileId: profile.id,
-      company: e.company,
-      title: e.title,
-      start: e.start ?? null,
-      end: e.end ?? null,
-      description: e.description ?? null,
-      tech: e.tech ?? null,
-    });
-
-    if (projects.length) {
-      await this.prisma.project.createMany({ data: projects.map(mapProject) });
-    }
-    if (experiences.length) {
-      await this.prisma.experience.createMany({
-        data: experiences.map(mapExperience),
+    await this.prisma.$transaction(async (tx) => {
+      const profile = await tx.profile.upsert({
+        where: { userId },
+        create: { userId, headline, summary, skills },
+        update: { headline, summary, skills },
       });
-    }
+
+      await tx.project.deleteMany({ where: { profileId: profile.id } });
+      await tx.experience.deleteMany({ where: { profileId: profile.id } });
+
+      const mapProject = (p: ProjectDto) => ({
+        profileId: profile.id,
+        name: p.name,
+        link: p.link ?? null,
+        tech: p.tech ?? null,
+        description: p.description ?? null,
+      });
+      const mapExperience = (e: ExperienceDto) => ({
+        profileId: profile.id,
+        company: e.company,
+        title: e.title,
+        start: e.start ?? null,
+        end: e.end ?? null,
+        description: e.description ?? null,
+        tech: e.tech ?? null,
+      });
+
+      if (projects.length) {
+        await tx.project.createMany({ data: projects.map(mapProject) });
+      }
+      if (experiences.length) {
+        await tx.experience.createMany({ data: experiences.map(mapExperience) });
+      }
+    });
 
     return this.getMe(userId);
   }
