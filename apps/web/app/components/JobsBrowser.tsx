@@ -1,18 +1,29 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-type Company = { id: number; name: string };
+type Company = { id: number; name: string; source?: string | null };
+type ApiJob = {
+  id: number;
+  title: string;
+  url: string;
+  location?: string | null;
+  seniority?: string | null;
+  postedAt?: string | null;
+  scrapedAt?: string | null;
+  company?: Company | null;
+};
+
 type Job = {
   id: number;
   title: string;
   url: string;
   location?: string;
   seniority?: string;
-  source?: string; // <-- bleibt wie früher auf Top-Level
   postedAt?: string;
-  createdAt: string; // UI-Name bleibt "createdAt"
-  company?: Company;
+  createdAt: string; // UI-Name
+  source?: string;
+  company?: { id: number; name: string };
 };
 
 type ApiMeta = {
@@ -24,7 +35,21 @@ type ApiMeta = {
   hasNext: boolean;
 };
 
-type ApiResult = { data: any[]; meta: ApiMeta };
+type ApiResult = { data: ApiJob[]; meta: ApiMeta };
+
+type Sort =
+  | 'postedAt:desc'
+  | 'postedAt:asc'
+  | 'createdAt:desc'
+  | 'createdAt:asc'
+  | 'scrapedAt:desc'
+  | 'scrapedAt:asc'
+  | 'title:asc'
+  | 'title:desc'
+  | 'company:asc'
+  | 'company:desc';
+
+type SortableCol = 'title' | 'company' | 'postedAt' | 'createdAt';
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
 
@@ -34,9 +59,7 @@ export default function JobsBrowser() {
   const [onlyStudent, setOnlyStudent] = useState(true);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
-  const [sort, setSort] = useState<
-    'postedAt:desc' | 'postedAt:asc' | 'createdAt:desc' | 'title:asc' | 'company:asc'
-  >('postedAt:desc');
+  const [sort, setSort] = useState<Sort>('postedAt:desc');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -44,7 +67,7 @@ export default function JobsBrowser() {
   const [meta, setMeta] = useState<ApiMeta | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const qs = new URLSearchParams();
@@ -54,30 +77,26 @@ export default function JobsBrowser() {
       if (dateFrom) qs.set('dateFrom', dateFrom);
       if (dateTo) qs.set('dateTo', dateTo);
 
-      // Server kennt "scrapedAt", nicht "createdAt" → translate:
-      const sortParam = sort.startsWith('createdAt')
-        ? (sort.replace('createdAt', 'scrapedAt') as 'scrapedAt:desc')
+      // Server kennt scrapedAt statt createdAt
+      const sortParam: Sort = sort.startsWith('createdAt')
+        ? (sort.replace('createdAt', 'scrapedAt') as Sort)
         : sort;
       qs.set('sort', sortParam);
-
       qs.set('page', String(page));
       qs.set('limit', String(limit));
 
       const res = await fetch(`${apiBase}/jobs?${qs.toString()}`, { cache: 'no-store' });
       const json: ApiResult = await res.json();
 
-      // Daten zu deinem alten Shape mappen:
-      const mapped: Job[] = (json.data || []).map((j: any) => ({
+      const mapped: Job[] = (json.data ?? []).map((j) => ({
         id: j.id,
         title: j.title,
         url: j.url,
         location: j.location ?? undefined,
         seniority: j.seniority ?? undefined,
         postedAt: j.postedAt ?? undefined,
-        // createdAt für UI aus scrapedAt ableiten, falls nötig
-        createdAt: j.createdAt ?? j.scrapedAt ?? new Date().toISOString(),
-        // Top-Level source wiederherstellen:
-        source: j.source ?? j.company?.source ?? undefined,
+        createdAt: j.scrapedAt ?? new Date().toISOString(),
+        source: j.company?.source ?? undefined, // Top-level source fürs UI
         company: j.company ? { id: j.company.id, name: j.company.name } : undefined,
       }));
 
@@ -86,34 +105,31 @@ export default function JobsBrowser() {
     } finally {
       setLoading(false);
     }
-  }
-
-  // re-fetch whenever filters/pagination change
-  useEffect(() => {
-    void load();
   }, [title, company, onlyStudent, dateFrom, dateTo, sort, page, limit]);
 
-  // reset page when filters change substantively
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Bei Filterwechsel auf Seite 1
   useEffect(() => {
     setPage(1);
   }, [title, company, onlyStudent, dateFrom, dateTo, sort, limit]);
 
-  function changeSort(col: 'title' | 'company' | 'postedAt' | 'createdAt') {
+  function changeSort(col: SortableCol) {
     setPage(1);
     setSort((prev) => {
       const [fld, dir] = prev.split(':') as [string, 'asc' | 'desc'];
       if (fld === col) {
-        return (dir === 'asc' ? `${col}:desc` : `${col}:asc`) as any;
+        const nextDir: 'asc' | 'desc' = dir === 'asc' ? 'desc' : 'asc';
+        return `${col}:${nextDir}` as Sort;
       }
-      // defaults when changing column
-      return col === 'title' || col === 'company' ? (`${col}:asc` as any) : (`${col}:desc` as any);
+      // Defaults beim Spaltenwechsel
+      return col === 'title' || col === 'company'
+        ? (`${col}:asc` as Sort)
+        : (`${col}:desc` as Sort);
     });
   }
-
-  const sortIcon = useMemo(() => {
-    const [fld, dir] = sort.split(':');
-    return { fld, dir };
-  }, [sort]);
 
   return (
     <div className="space-y-4">
@@ -156,7 +172,7 @@ export default function JobsBrowser() {
         <select
           className="border rounded p-2 bg-transparent"
           value={sort}
-          onChange={(e) => setSort(e.target.value as any)}
+          onChange={(e) => setSort(e.target.value as Sort)}
         >
           <option value="postedAt:desc">Newest (posted)</option>
           <option value="postedAt:asc">Oldest (posted)</option>
@@ -259,13 +275,13 @@ function Th({
   onClick,
 }: {
   label: string;
-  col?: 'title' | 'company' | 'postedAt' | 'createdAt';
-  sort?: string;
-  onClick?: (c: any) => void;
+  col?: SortableCol;
+  sort?: Sort;
+  onClick?: (c: SortableCol) => void;
 }) {
   let arrow = '';
   if (col && sort) {
-    const [fld, dir] = sort.split(':');
+    const [fld, dir] = sort.split(':') as [SortableCol, 'asc' | 'desc'];
     if (fld === col) arrow = dir === 'asc' ? '▲' : '▼';
   }
   if (!col) return <th className="py-2 pr-3">{label}</th>;
