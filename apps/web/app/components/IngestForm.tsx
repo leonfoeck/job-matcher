@@ -6,30 +6,24 @@ interface IngestFormProps {
 }
 
 export default function IngestForm({ onDone }: Readonly<IngestFormProps>) {
-  const [companiesText, setCompaniesText] = useState('Isar Aerospace\nOroraTech\nGridX');
   const [websiteText, setWebsiteText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<unknown>(null); // <- kein any
+  const [result, setResult] = useState<unknown>(null);
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
 
   async function onRun(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setResult(null);
-    const names = companiesText
+    const websites = websiteText
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean);
-    const sites = websiteText.split(/\r?\n/);
-    const companies = names.map((name, i) => ({
-      name,
-      website: (sites[i] || '').trim() || undefined,
-    }));
     try {
       const res = await fetch(`${api}/ingest/run`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ companies }),
+        body: JSON.stringify({ websites }),
       });
       const json = await res.json();
       setResult(json);
@@ -44,19 +38,8 @@ export default function IngestForm({ onDone }: Readonly<IngestFormProps>) {
   return (
     <form onSubmit={onRun} className="space-y-3 border rounded p-4">
       <div>
-        <label htmlFor="companies" className="block font-semibold mb-1">
-          Companies (one per line)
-        </label>
-        <textarea
-          id="companies"
-          className="w-full border rounded p-2 h-28"
-          value={companiesText}
-          onChange={(e) => setCompaniesText(e.target.value)}
-        />
-      </div>
-      <div>
         <label htmlFor="websites" className="block font-semibold mb-1">
-          Websites (optional, one per line aligned)
+          Websites (one per line aligned)
         </label>
         <textarea
           id="websites"

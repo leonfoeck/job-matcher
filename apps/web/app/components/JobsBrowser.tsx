@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import * as RSelect from '@radix-ui/react-select';
+
+/* ---------------------------------- Types --------------------------------- */
 
 type LogoInfo = {
   src: string | null;
@@ -10,20 +13,12 @@ type LogoInfo = {
   host?: string | null;
 };
 
-function getLogoInfo(company?: { logoUrl?: string | null; domain?: string | null }): LogoInfo {
+function getLogoInfo(company?: { domain?: string | null }): LogoInfo {
   if (!company) return { src: null, reason: 'none' };
-
-  const explicit = (company.logoUrl || '').trim();
-  if (explicit) {
-    return { src: explicit, reason: 'explicit', domain: company.domain ?? null };
-  }
-
   const raw = (company.domain || '').trim();
   if (!raw) return { src: null, reason: 'none', domain: null };
-
   const host = raw.replace(/^https?:\/\//, '').split('/')[0] || null;
   if (!host) return { src: null, reason: 'none', domain: raw, host: null };
-
   return {
     src: `https://logo.clearbit.com/${encodeURIComponent(host)}?size=64`,
     reason: 'derived',
@@ -31,7 +26,6 @@ function getLogoInfo(company?: { logoUrl?: string | null; domain?: string | null
     host,
   };
 }
-
 
 type Company = {
   id: number;
@@ -64,7 +58,6 @@ type Job = {
   company?: { id: number; name: string; logoUrl?: string | null; domain?: string | null };
 };
 
-
 type ApiResult = { data: ApiJob[]; meta: ApiMeta };
 
 type Sort =
@@ -83,6 +76,85 @@ type SortableCol = 'title' | 'company' | 'postedAt' | 'createdAt';
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
 
+/* ------------------------------ UI: Select -------------------------------- */
+
+type Option = { value: string; label: string };
+
+function UiSelect({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  className = 'w-44',
+}: {
+  value?: string;
+  onValueChange?: (v: string) => void;
+  options: Option[];
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <RSelect.Root value={value} onValueChange={onValueChange}>
+      <RSelect.Trigger
+        className={[
+          'w-full inline-flex items-center justify-between rounded-md',
+          'border border-white/10 bg-zinc-900 text-zinc-100',
+          'px-3 py-2 text-sm shadow-sm hover:bg-zinc-800',
+          'outline-none focus:outline-none focus-visible:outline-none',
+          'focus:ring-1 focus:ring-blue-500 ring-inset focus:ring-offset-0 focus:shadow-none',
+          'focus:border-blue-500',
+          'appearance-none',
+          'min-w-0',
+          className,
+        ].join(' ')}
+        aria-label={placeholder}
+      >
+        <RSelect.Value placeholder={placeholder} />
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          aria-hidden
+          className="ml-2 opacity-80 shrink-0"
+        >
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </RSelect.Trigger>
+
+      <RSelect.Portal>
+        <RSelect.Content
+          position="popper"
+          sideOffset={6}
+          className="z-50 rounded-md border border-white/10 bg-zinc-900 text-zinc-100 shadow-xl"
+        >
+          <RSelect.Viewport className="p-1 min-w-[var(--radix-select-trigger-width)]">
+            {options.map((opt) => (
+              <RSelect.Item
+                key={opt.value}
+                value={opt.value}
+                className={[
+                  'relative flex cursor-pointer select-none items-center rounded',
+                  'px-3 py-2 text-sm outline-none',
+                  'data-[highlighted]:bg-zinc-800 data-[highlighted]:text-white',
+                ].join(' ')}
+              >
+                <RSelect.ItemText>{opt.label}</RSelect.ItemText>
+                <RSelect.ItemIndicator className="absolute right-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
+                    <path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" strokeWidth="2" />
+                  </svg>
+                </RSelect.ItemIndicator>
+              </RSelect.Item>
+            ))}
+          </RSelect.Viewport>
+        </RSelect.Content>
+      </RSelect.Portal>
+    </RSelect.Root>
+  );
+}
+
+/* ----------------------------- Main component ----------------------------- */
+
 export default function JobsBrowser() {
   const [title, setTitle] = useState('');
   const [company, setCompany] = useState('');
@@ -92,10 +164,6 @@ export default function JobsBrowser() {
   const [sort, setSort] = useState<Sort>('postedAt:desc');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
-  const [showDebug, setShowDebug] = useState(false);
-  const [logoStatus, setLogoStatus] = useState<Record<number, 'ok' | 'error' | 'none'>>({});
-  const [logoNote, setLogoNote] = useState<Record<number, string>>({});
-
 
   const [data, setData] = useState<Job[]>([]);
   const [meta, setMeta] = useState<ApiMeta | null>(null);
@@ -111,7 +179,6 @@ export default function JobsBrowser() {
       if (dateFrom) qs.set('dateFrom', dateFrom);
       if (dateTo) qs.set('dateTo', dateTo);
 
-      // Server kennt scrapedAt statt createdAt
       const sortParam: Sort = sort.startsWith('createdAt')
         ? (sort.replace('createdAt', 'scrapedAt') as Sort)
         : sort;
@@ -133,14 +200,13 @@ export default function JobsBrowser() {
         source: j.company?.source ?? undefined,
         company: j.company
           ? {
-            id: j.company.id,
-            name: j.company.name,
-            logoUrl: j.company.logoUrl ?? null,
-            domain: j.company.domain ?? null,
-          }
+              id: j.company.id,
+              name: j.company.name,
+              logoUrl: j.company.logoUrl ?? null,
+              domain: j.company.domain ?? null,
+            }
           : undefined,
       }));
-
 
       setData(mapped);
       setMeta(json.meta);
@@ -153,7 +219,6 @@ export default function JobsBrowser() {
     void load();
   }, [load]);
 
-  // Bei Filterwechsel auf Seite 1
   useEffect(() => {
     setPage(1);
   }, [title, company, onlyStudent, dateFrom, dateTo, sort, limit]);
@@ -166,62 +231,42 @@ export default function JobsBrowser() {
         const nextDir: 'asc' | 'desc' = dir === 'asc' ? 'desc' : 'asc';
         return `${col}:${nextDir}` as Sort;
       }
-      // Defaults beim Spaltenwechsel
       return col === 'title' || col === 'company'
         ? (`${col}:asc` as Sort)
         : (`${col}:desc` as Sort);
     });
   }
 
-  function deriveLogoSrc(company?: {
-    logoUrl?: string | null;
-    domain?: string | null;
-  }): string | null {
-    if (!company) return null;
-
-    const explicit = (company.logoUrl || '').trim();
-    if (explicit) return explicit;
-
-    const raw = (company.domain || '').trim();
-    if (!raw) return null;
-
-    const host = raw.replace(/^https?:\/\//, '').split('/')[0]; // hostname only
-    console.log('host', host);
-    if (!host) return null;
-
-    return `https://logo.clearbit.com/${encodeURIComponent(host)}?size=64`;
-  }
-
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="grid md:grid-cols-6 gap-3">
+      <div className="grid md:grid-cols-6 gap-4">
         <input
-          className="md:col-span-2 border rounded p-2 bg-transparent"
+          className="md:col-span-2 border rounded p-2 bg-transparent min-w-0"
           placeholder="Filter by title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
         <input
-          className="md:col-span-2 border rounded p-2 bg-transparent"
+          className="md:col-span-2 border rounded p-2 bg-transparent min-w-0"
           placeholder="Filter by company"
           value={company}
           onChange={(e) => setCompany(e.target.value)}
         />
         <input
           type="date"
-          className="border rounded p-2 bg-transparent"
+          className="border rounded p-2 bg-transparent min-w-0"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
         />
         <input
           type="date"
-          className="border rounded p-2 bg-transparent"
+          className="border rounded p-2 bg-transparent min-w-0"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
         />
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="md:col-span-1 flex items-center gap-2 text-sm whitespace-nowrap md:mr-4">
           <input
             type="checkbox"
             checked={onlyStudent}
@@ -229,39 +274,32 @@ export default function JobsBrowser() {
           />
           Only Working Student
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={showDebug}
-            onChange={(e) => setShowDebug(e.target.checked)}
-          />
-          Debug logos
-        </label>
 
+        <div className="hidden md:block md:col-span-1" />
 
-        <select
-          className="border rounded p-2 bg-transparent"
+        {/* Sort */}
+        <UiSelect
           value={sort}
-          onChange={(e) => setSort(e.target.value as Sort)}
-        >
-          <option value="postedAt:desc">Newest (posted)</option>
-          <option value="postedAt:asc">Oldest (posted)</option>
-          <option value="createdAt:desc">Newest (ingested)</option>
-          <option value="title:asc">Title A–Z</option>
-          <option value="company:asc">Company A–Z</option>
-        </select>
+          onValueChange={(v) => setSort(v as Sort)}
+          options={[
+            { value: 'postedAt:desc', label: 'Newest (posted)' },
+            { value: 'postedAt:asc', label: 'Oldest (posted)' },
+            { value: 'createdAt:desc', label: 'Newest (ingested)' },
+            { value: 'title:asc', label: 'Title A–Z' },
+            { value: 'company:asc', label: 'Company A–Z' },
+          ]}
+          placeholder="Sort by"
+          className="md:col-span-2 w-full min-w-0"
+        />
 
-        <select
-          className="border rounded p-2 bg-transparent"
-          value={limit}
-          onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-        >
-          {[10, 20, 50, 100].map((n) => (
-            <option key={n} value={n}>
-              {n} / page
-            </option>
-          ))}
-        </select>
+        {/* Limit */}
+        <UiSelect
+          value={String(limit)}
+          onValueChange={(v) => setLimit(parseInt(v, 10))}
+          options={[10, 20, 50, 100].map((n) => ({ value: String(n), label: `${n} / page` }))}
+          placeholder="Items / page"
+          className="md:col-span-2 w-full min-w-0"
+        />
       </div>
 
       {/* Table */}
@@ -297,7 +335,6 @@ export default function JobsBrowser() {
                   <Link href={`/cv/${j.id}`} className="underline">
                     {j.title}
                   </Link>
-                  {/* tiny external link to original posting */}
                   {j.url && (
                     <a
                       href={j.url}
@@ -309,37 +346,17 @@ export default function JobsBrowser() {
                     </a>
                   )}
                 </td>
+
                 <td className="py-2 pr-3">
                   <div className="flex items-center gap-2">
                     <div className="relative w-8 h-8 rounded-full border grid place-items-center bg-gray-800 text-gray-200 shrink-0">
-                      {/* fallback initial */}
+                      {/* Fallback initial */}
                       <span className="text-xs">{(j.company?.name?.[0] || '?').toUpperCase()}</span>
 
-                      {/* logo overlay */}
+                      {/* Logo overlay (no debug) */}
                       {(() => {
                         const info = getLogoInfo(j.company);
-                        // Console diagnostics per row
-                        console.debug('logo-debug', {
-                          jobId: j.id,
-                          company: j.company?.name,
-                          info,
-                        });
-
-                        if (!info.src) {
-                          // record "none" once
-                          if (logoStatus[j.id] !== 'none') {
-                            setLogoStatus((s) => ({ ...s, [j.id]: 'none' }));
-                            setLogoNote((n) => ({
-                              ...n,
-                              [j.id]:
-                                info.reason === 'none'
-                                  ? (info.domain ? 'invalid host' : 'no logoUrl & no domain')
-                                  : '',
-                            }));
-                          }
-                          return null;
-                        }
-
+                        if (!info.src) return null;
                         return (
                           <img
                             src={info.src}
@@ -347,28 +364,9 @@ export default function JobsBrowser() {
                             className="absolute inset-0 w-full h-full rounded-full object-cover"
                             loading="lazy"
                             referrerPolicy="no-referrer"
-                            onLoad={() => {
-                              setLogoStatus((s) => ({ ...s, [j.id]: 'ok' }));
-                              setLogoNote((n) => {
-                                const { [j.id]: _, ...rest } = n;
-                                return rest; // clear note on success
-                              });
-                            }}
                             onError={(e) => {
                               // Hide broken image
                               (e.currentTarget as HTMLImageElement).style.display = 'none';
-                              setLogoStatus((s) => ({ ...s, [j.id]: 'error' }));
-                              setLogoNote((n) => ({
-                                ...n,
-                                [j.id]: `img error from ${info.reason}${
-                                  info.host ? ` (${info.host})` : ''
-                                }`,
-                              }));
-                              console.warn('logo-error', {
-                                jobId: j.id,
-                                company: j.company?.name,
-                                attemptedSrc: info.src,
-                              });
                             }}
                           />
                         );
@@ -376,27 +374,6 @@ export default function JobsBrowser() {
                     </div>
                     <div className="flex flex-col">
                       <span>{j.company?.name ?? '—'}</span>
-
-                      {/* tiny debug line */}
-                      {showDebug && (
-                        <span className="text-[10px] text-gray-400">
-          {(() => {
-            const info = getLogoInfo(j.company);
-            const status = logoStatus[j.id] || 'none';
-            const note = logoNote[j.id];
-            return [
-              `status=${status}`,
-              `reason=${info.reason}`,
-              info.domain ? `domain=${info.domain}` : null,
-              info.host ? `host=${info.host}` : null,
-              info.src ? `src=${info.src}` : null,
-              note ? `note=${note}` : null,
-            ]
-              .filter(Boolean)
-              .join(' • ');
-          })()}
-        </span>
-                      )}
                     </div>
                   </div>
                 </td>

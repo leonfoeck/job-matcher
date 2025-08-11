@@ -7,10 +7,10 @@ export function htmlToText(html?: string | null) {
   return $('#x').text().replace(/\s+/g, ' ').trim().slice(0, 20000);
 }
 
-export function normalizeDomain(input?: string | null): string | null {
-  if (!input) return null;
+export function normalizeDomain(input?: string | null): string | undefined {
+  if (!input) return undefined;
   let s = String(input).trim();
-  if (!s) return null;
+  if (!s) return undefined;
 
   try {
     // If it looks like a URL, parse and take the hostname
@@ -25,5 +25,5 @@ export function normalizeDomain(input?: string | null): string | null {
   // strip leading www. and lower-case
   s = s.replace(/^www\./i, '').toLowerCase();
   // quick sanity: require at least one dot to look like a domain
-  return /\./.test(s) ? s : null;
+  return /\./.test(s) ? s : undefined;
 }

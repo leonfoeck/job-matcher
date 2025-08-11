@@ -4,10 +4,42 @@ import { JobsService } from '../jobs/jobs.service';
 import { detectPersonio, fetchPersonioJobs } from '../providers/personio';
 import { detectGreenhouse, fetchGreenhouseJobs } from '../providers/greenhouse';
 import { detectLever, fetchLeverJobs } from '../providers/lever';
-import { normalizeDomain } from './html.util';
 import type { IngestJob } from './ingest.types';
+import { parse } from 'tldts';
 
-export type CompanyInput = { name: string; website?: string };
+export type CompanyInput = { website: string };
+
+export function companyNameFromUrl(input?: string | null): string {
+  if (!input) return '';
+  let host = '';
+
+  try {
+    const u = new URL(input);
+    host = u.hostname;
+  } catch {
+    host = String(input || '')
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .split(/[/?#]/, 1)[0];
+  }
+
+  if (!host) return '';
+
+  const info = parse(host, { allowPrivateDomains: true });
+  if (info.isIp) return '';
+
+  // eTLD+1 like "robco.de"
+  const domain = info.domain || host;
+  const suffixParts = (info.publicSuffix || '').split('.').filter(Boolean);
+  const parts = domain.split('.');
+
+  // Strip the public suffix to get the SLD (e.g., "robco")
+  const sld =
+    parts.slice(0, parts.length - suffixParts.length).join('.') ||
+    parts[0] ||
+    '';
+  return sld.toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
 
 @Injectable()
 export class IngestService {
@@ -17,25 +49,21 @@ export class IngestService {
     const results: Array<Record<string, unknown>> = [];
 
     for (const c of companies) {
-      const name = c.name.trim();
-      const website = c.website?.trim();
-      if (!name) continue;
+      const website = c.website.trim();
+      if (!website) {
+        continue;
+      }
 
-      // compute once
-      const domainForCompany = normalizeDomain(website ?? null) ?? undefined;
+      const name = companyNameFromUrl(website);
 
       let matched = false;
       let total = 0;
 
       try {
-        const m = await detectPersonio(name, c.website);
+        const m = await detectPersonio(name, website);
         if (m) {
-          let list: IngestJob[] = await fetchPersonioJobs(name, m);
-          if (domainForCompany) {
-            list = list.map(j => ({ ...j, domain: domainForCompany }));
-          }
+          const list: IngestJob[] = await fetchPersonioJobs(name, website, m);
           total += list.length;
-          await this.jobs.upsertMany(list);
           results.push({
             company: name,
             provider: 'personio',
@@ -49,12 +77,9 @@ export class IngestService {
       }
 
       try {
-        const m = await detectGreenhouse(name, c.website);
+        const m = await detectGreenhouse(name, website);
         if (m) {
-          let list = await fetchGreenhouseJobs(name, m);
-          if (domainForCompany) {
-            list = list.map(j => ({ ...j, domain: domainForCompany }));
-          }
+          const list = await fetchGreenhouseJobs(name, website, m);
           total += list.length;
           await this.jobs.upsertMany(list);
           results.push({
@@ -74,12 +99,9 @@ export class IngestService {
       }
 
       try {
-        const m = await detectLever(name, c.website);
+        const m = await detectLever(name, website);
         if (m) {
-          let list = await fetchLeverJobs(name, m);
-          if (domainForCompany) {
-            list = list.map(j => ({ ...j, domain: domainForCompany }));
-          }
+          const list = await fetchLeverJobs(name, website, m);
           total += list.length;
           await this.jobs.upsertMany(list);
           results.push({

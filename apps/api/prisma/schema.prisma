@@ -12,11 +12,9 @@ datasource db {
 
 model Company {
   id      Int       @id @default(autoincrement())
-  name    String    @unique
+  name    String
   source  String
-  domain  String?
-  logoUrl String?
-  logoUpdatedAt DateTime?
+  domain  String?   @unique
   jobs    JobPost[]
 
   @@index([name])
@@ -31,7 +29,7 @@ model JobPost {
   seniority String?
   postedAt  DateTime?
   scrapedAt DateTime @default(now())
-  rawText   String   @default("")
+  rawText   String   @db.Text @default("")
   processed Boolean  @default(false)
   company   Company  @relation(fields: [companyId], references: [id])
 

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { JobsQueryDto } from './jobs.dto';
 import { Prisma } from '@prisma/client';
 import type { IngestJob } from '../ingest/ingest.types';
+
 type SortableField =
   | 'title'
   | 'postedAt'
@@ -14,27 +15,6 @@ const isSortableField = (s: string): s is SortableField =>
   (
     ['title', 'postedAt', 'scrapedAt', 'location', 'seniority'] as const
   ).includes(s as SortableField);
-
-function normalizeDomain(input?: string | null): string | null {
-  if (!input) return null;
-  let s = String(input).trim();
-  if (!s) return null;
-
-  try {
-    // If it looks like a URL, parse and take the hostname
-    if (/^https?:\/\//i.test(s)) {
-      const u = new URL(s);
-      s = u.hostname;
-    }
-  } catch {
-    // not a valid URL; fall back to whatever was provided
-  }
-
-  // strip leading www. and lower-case
-  s = s.replace(/^www\./i, '').toLowerCase();
-  // quick sanity: require at least one dot to look like a domain
-  return /\./.test(s) ? s : null;
-}
 
 @Injectable()
 export class JobsService {
@@ -137,41 +117,27 @@ export class JobsService {
 
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       for (const j of jobs) {
-        const rawDomain = (j as any).domain ?? (j as any).baseUrl ?? null;
-        const domain = normalizeDomain(rawDomain);
-
-        // Falls j.logoUrl schon gesetzt: nutzen; sonst Clearbit-URL aus Domain bauen
-        const computedLogoUrl = j.logoUrl?.trim()
-          ? j.logoUrl.trim()
-          : domain
-            ? `https://logo.clearbit.com/${encodeURIComponent(domain)}?size=128`
-            : null;
         const company = await tx.company.upsert({
           where: { name: j.company },
           update: {
             ...(j.source ? { source: j.source } : {}),
-            ...(domain ? { domain } : {}),
-            ...(computedLogoUrl ? { logoUrl: computedLogoUrl, logoUpdatedAt: new Date() } : {}),
+            ...(j.domain ? { domain: j.domain } : {}),
           },
           create: {
             name: j.company,
             source: j.source ?? 'unknown',
-            domain: domain ?? null,
-            logoUrl: computedLogoUrl ?? null,
-            ...(computedLogoUrl ? { logoUpdatedAt: new Date() } : {}),
+            domain: j.domain ?? null,
           },
         });
 
         // Job anlegen/aktualisieren (URL ist unique)
         const before = await tx.jobPost.findUnique({ where: { url: j.url } });
-
         // postedAt robust parsen
         let postedAt: Date | null = null;
         if (j.postedAt) {
           const d = new Date(j.postedAt as any);
           if (!isNaN(d.getTime())) postedAt = d;
         }
-
         const data: Prisma.JobPostUncheckedCreateInput = {
           companyId: company.id,
           title: j.title,
@@ -183,6 +149,7 @@ export class JobsService {
           processed: false,
           scrapedAt: new Date(),
         };
+
 
         if (before) {
           await tx.jobPost.update({

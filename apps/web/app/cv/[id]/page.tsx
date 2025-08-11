@@ -12,7 +12,7 @@ type Job = {
   id: number;
   title: string;
   url?: string;
-  rawText?: string;
+  rawText?: string; // HTML (UI: sanitized render, PDF: plaintext)
   postedAt?: string;
   company?: Company;
 };
@@ -38,15 +38,59 @@ type Me = { email: string; name?: string; profile?: Profile };
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
 
-// coerce backend values to string[]
+// Coerce backend values to string[]
 const toStrArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.map(String) : typeof v === 'string' && v.trim() ? [v] : [];
 
+// ——————————————————————————————————————
+// YouTube-Embedding: nur YT whitelisten
+// ——————————————————————————————————————
+function extractYouTubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.endsWith('youtu.be')) return u.pathname.slice(1) || null;
+    if (u.hostname.includes('youtube.com')) {
+      if (u.pathname.startsWith('/embed/')) return u.pathname.split('/')[2] || null;
+      const v = u.searchParams.get('v');
+      if (v) return v;
+    }
+  } catch {}
+  return null;
+}
+
+function preProcessIframes(raw: string): string {
+  // Ersetze alle iframes: nur YouTube bleibt als Embed, Rest wird Link
+  return raw.replace(/<iframe[\s\S]*?<\/iframe>/gi, (match) => {
+    const srcMatch = match.match(/\ssrc\s*=\s*["']([^"']+)["']/i);
+    const src = srcMatch?.[1] || '';
+    const id = extractYouTubeId(src);
+    if (!id) {
+      // Unbekannte Embeds -> sicherer Link
+      return `<p><a href="${src}" rel="noopener noreferrer" target="_blank">Open embedded content ↗</a></p>`;
+    }
+    const safeSrc = `https://www.youtube-nocookie.com/embed/${id}`;
+    return `
+      <div class="my-4 aspect-video">
+        <iframe
+          src="${safeSrc}"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+          sandbox="allow-scripts allow-same-origin allow-presentation"
+          title="YouTube video"
+        ></iframe>
+      </div>`;
+  });
+}
+
+// ——————————————————————————————————————
+// Page
+// ——————————————————————————————————————
 export default function CvForJobPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const id = Number(params.id);
 
+  const id = Number(params.id);
   const [job, setJob] = useState<Job | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [profile, setProfile] = useState<Profile>({ projects: [], experiences: [] });
@@ -55,21 +99,32 @@ export default function CvForJobPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!Number.isFinite(id)) {
+      setLoading(false);
+      return;
+    }
+
+    const ac = new AbortController();
     let mounted = true;
+
     async function load() {
       try {
-        // job
-        const jr = await fetch(`${apiBase}/jobs/${id}`, { cache: 'no-store' });
+        // Job
+        const jr = await fetch(`${apiBase}/jobs/${id}`, {
+          cache: 'no-store',
+          signal: ac.signal,
+        });
         if (!jr.ok) throw new Error('Job not found');
         const j: Job = await jr.json();
         if (!mounted) return;
         setJob(j);
 
-        // me/profile
+        // Me/Profile (nur falls Token da)
         const token = getAuthTokenClient();
         if (token) {
           const mr = await fetch(`${apiBase}/users/me`, {
             headers: { Authorization: `Bearer ${token}` },
+            signal: ac.signal,
           });
           if (mr.ok) {
             const m: Me = await mr.json();
@@ -102,21 +157,56 @@ export default function CvForJobPage() {
         if (mounted) setLoading(false);
       }
     }
-    if (Number.isFinite(id)) void load();
+
+    void load();
     return () => {
       mounted = false;
+      ac.abort();
     };
   }, [id]);
 
-  // Sanitize HTML for on-page render
+  // ——— Sanitizing für UI ———
+  const allowedTags = useMemo(
+    () => [
+      'h1','h2','h3','h4','p','br','strong','em','u',
+      'ul','ol','li','a','blockquote','code','pre','hr',
+      'table','thead','tbody','tr','th','td','colgroup','col',
+      'span','div','iframe'
+    ],
+    [],
+  );
+  const allowedAttrs = useMemo(
+    () => ['href','title','target','rel','src','loading','allow','allowfullscreen','sandbox'],
+    [],
+  );
+
   const safeHtml = useMemo(() => {
-    return DOMPurify.sanitize(job?.rawText ?? '', { USE_PROFILES: { html: true } });
+    const html = job?.rawText ?? '';
+    const withEmbeds = preProcessIframes(html);
+    return DOMPurify.sanitize(withEmbeds, {
+      ALLOWED_TAGS: allowedTags,
+      ALLOWED_ATTR: allowedAttrs,
+      FORBID_TAGS: ['style','script'],
+      FORBID_ATTR: ['style','onerror','onclick','onload'],
+      ALLOW_DATA_ATTR: false,
+    });
+  }, [job?.rawText, allowedTags, allowedAttrs]);
+
+  // Plaintext für PDF
+  const textForPdf = useMemo(() => {
+    const html = job?.rawText ?? '';
+    return DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
   }, [job?.rawText]);
 
-  // Plain text for PDF (strip all tags/attrs)
-  const textForPdf = useMemo(() => {
-    return DOMPurify.sanitize(job?.rawText ?? '', { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
-  }, [job?.rawText]);
+  // Links absichern
+  useEffect(() => {
+    const root = document.getElementById('job-html');
+    if (!root) return;
+    root.querySelectorAll('a').forEach((a) => {
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+    });
+  }, [safeHtml]);
 
   async function generatePdf() {
     if (!job) return;
@@ -131,7 +221,7 @@ export default function CvForJobPage() {
         target={{
           jobTitle: job.title,
           company: job.company?.name,
-          jobDescription: textForPdf, // pass text to PDF
+          jobDescription: textForPdf,
         }}
       />,
     ).toBlob();
@@ -146,29 +236,58 @@ export default function CvForJobPage() {
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
+  if (!Number.isFinite(id)) return <div className="p-6">Invalid job id</div>;
   if (!job) return <div className="p-6">Job not found</div>;
 
   return (
-    <div className="grid md:grid-cols-2 gap-6">
+    <div className="grid md:grid-cols-2 gap-6 p-0">
       {/* LEFT: Job details */}
-      <div className="space-y-3">
-        <button className="text-sm opacity-70 underline" onClick={() => router.back()}>
+      <div className="space-y-4">
+        <button
+          className="text-sm opacity-70 underline"
+          onClick={() => router.back()}
+        >
           &larr; Back
         </button>
-        <h1 className="text-2xl font-bold">{job.title}</h1>
+
+        <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+          {job.title}
+        </h1>
+
         <div className="text-sm text-gray-400">
           {[job.company?.name, job.postedAt ? new Date(job.postedAt).toLocaleDateString() : '']
             .filter(Boolean)
             .join(' • ')}
         </div>
+
         {job.url && (
-          <a className="underline text-sm" href={job.url} target="_blank" rel="noreferrer">
+          <a
+            className="underline text-sm"
+            href={job.url}
+            target="_blank"
+            rel="noreferrer"
+          >
             Open original posting ↗
           </a>
         )}
-        <div className="border rounded p-3 h-96 overflow-auto">
+
+        {/* Lesbarer HTML-Block (scrollable) */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 max-h-[70vh] overflow-auto">
           {safeHtml ? (
-            <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+            <article
+              id="job-html"
+              className="
+                prose prose-invert prose-lg md:prose-xl max-w-none
+                prose-headings:font-semibold
+                prose-h2:mt-6 prose-h3:mt-4 prose-p:leading-relaxed
+                prose-ul:my-2 prose-ol:my-2
+                prose-li:marker:opacity-70
+                prose-a:underline
+                prose-table:table-auto prose-th:font-semibold
+                [&_iframe]:w-full [&_iframe]:h-full
+              "
+              dangerouslySetInnerHTML={{ __html: safeHtml }}
+            />
           ) : (
             <p className="text-sm opacity-90">No description available.</p>
           )}
@@ -245,7 +364,7 @@ export default function CvForJobPage() {
                   <input
                     type="checkbox"
                     className="mt-1"
-                    checked={!!pickExp[i]}
+                    checked={pickExp[i]}
                     onChange={(e) =>
                       setPickExp(prev => prev.map((v, idx) => (idx === i ? e.target.checked : v)))
                     }

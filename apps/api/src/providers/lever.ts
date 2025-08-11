@@ -1,5 +1,6 @@
 import { slugCandidates, fetchWithTimeout } from './slug.util';
 import type { IngestJob } from '../ingest/ingest.types';
+import { normalizeDomain } from '../ingest/html.util';
 
 export type LeverMatch = { account: string; apiUrl: string };
 
@@ -37,6 +38,7 @@ export async function detectLever(
 
 export async function fetchLeverJobs(
   company: string,
+  website: string,
   match: LeverMatch,
 ): Promise<IngestJob[]> {
   const r = await fetchWithTimeout(match.apiUrl, 8000);
@@ -51,6 +53,7 @@ export async function fetchLeverJobs(
     .map(
       (j): IngestJob => ({
         company,
+        domain: normalizeDomain(website),
         source: 'lever',
         title: typeof j.text === 'string' ? j.text : '',
         url: typeof j.hostedUrl === 'string' ? j.hostedUrl : '',
