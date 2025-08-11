@@ -79,6 +79,16 @@ type Sort =
   | 'company:asc'
   | 'company:desc';
 
+// Define API meta type from server response
+type ApiMeta = {
+  total: number;
+  page: number;
+  limit: number;
+  pageCount: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+};
+
 type SortableCol = 'title' | 'company' | 'postedAt' | 'createdAt';
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';

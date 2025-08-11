@@ -1,6 +1,5 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import Image from 'next/image';
 
 type Job = Readonly<{
   id: number;
@@ -47,7 +46,15 @@ export default function JobsList({ refreshKey = 0 }: { refreshKey?: number }) {
               {j.title}
             </a>
           </div>
-          <Image src={j.company?.logoUrl} alt={"lol"}></Image>
+          {j.company?.logoUrl ? (
+            <img
+              src={j.company.logoUrl}
+              alt={`${j.company?.name ?? 'Company'} logo`}
+              className="mt-2 w-10 h-10 object-contain"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          ) : null}
           <div className="text-sm text-gray-500">
             {j.company?.name ?? '—'} · {j.location ?? '—'} · {j.seniority ?? '—'}
           </div>
