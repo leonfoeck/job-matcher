@@ -111,35 +111,69 @@ export class JobsService {
   }
 
   async upsertMany(jobs: IngestJob[]) {
-    // typisiert
     const inserted: string[] = [];
     const updated: string[] = [];
 
-    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await this.prisma.$transaction(async (tx) => {
       for (const j of jobs) {
-        const company = await tx.company.upsert({
-          where: { name: j.company },
-          update: {
-            ...(j.source ? { source: j.source } : {}),
-            ...(j.domain ? { domain: j.domain } : {}),
-          },
-          create: {
-            name: j.company,
-            source: j.source ?? 'unknown',
-            domain: j.domain ?? null,
-          },
-        });
+        const domain = (j.domain ?? '').trim() || null;
 
-        // Job anlegen/aktualisieren (URL ist unique)
+        // --- Company: prefer unique upsert by domain ---
+        let companyId: number;
+
+        if (domain) {
+          const company = await tx.company.upsert({
+            where: { domain }, // ✅ unique field
+            update: {
+              ...(j.source ? { source: j.source } : {}),
+              ...(j.company ? { name: j.company } : {}),
+            },
+            create: {
+              name: j.company,
+              source: j.source ?? 'unknown',
+              domain,
+            },
+            select: { id: true },
+          });
+          companyId = company.id;
+        } else {
+          // No domain → cannot upsert. Try find by name and update or create.
+          const existing = await tx.company.findFirst({
+            where: { name: j.company },
+            select: { id: true },
+          });
+
+          if (existing) {
+            await tx.company.update({
+              where: { id: existing.id },
+              data: { ...(j.source ? { source: j.source } : {}) },
+            });
+            companyId = existing.id;
+          } else {
+            const created = await tx.company.create({
+              data: {
+                name: j.company,
+                source: j.source ?? 'unknown',
+                domain: null,
+              },
+              select: { id: true },
+            });
+            companyId = created.id;
+          }
+        }
+
+        // --- Job: URL is unique ---
         const before = await tx.jobPost.findUnique({ where: { url: j.url } });
-        // postedAt robust parsen
+
+        // robust postedAt parsing
         let postedAt: Date | null = null;
         if (j.postedAt) {
           const d = new Date(j.postedAt as any);
           if (!isNaN(d.getTime())) postedAt = d;
         }
+
         const data: Prisma.JobPostUncheckedCreateInput = {
-          companyId: company.id,
+          companyId,
           title: j.title,
           url: j.url,
           location: j.location ?? null,
@@ -149,7 +183,6 @@ export class JobsService {
           processed: false,
           scrapedAt: new Date(),
         };
-
 
         if (before) {
           await tx.jobPost.update({

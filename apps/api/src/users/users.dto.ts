@@ -5,7 +5,7 @@ import {
   MaxLength,
   IsArray,
   ValidateNested,
-  ArrayMaxSize
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -34,6 +34,11 @@ export class ExperienceDto {
 }
 
 export class UpdateProfileDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(200)
+  favoriteCompanies?: string[];
   @IsOptional() @IsString() @MaxLength(120) headline?: string;
   @IsOptional() @IsString() @MaxLength(2000) summary?: string;
   @IsOptional() @IsString() skills?: string; // csv

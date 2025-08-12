@@ -9,10 +9,11 @@ type Experience = {
   title: string;
   start?: string;
   end?: string;
-  description?: string[];       // <-- array
+  description?: string[]; // <-- array
   tech?: string;
 };
 type Profile = {
+  favoriteCompanies?: string[];
   headline?: string;
   summary?: string;
   skills?: string;
@@ -27,7 +28,7 @@ type Me = {
 };
 
 const toStrArray = (v: unknown): string[] =>
-  Array.isArray(v) ? v.map(x => String(x)) : (typeof v === 'string' && v.length ? [v] : []);
+  Array.isArray(v) ? v.map((x) => String(x)) : typeof v === 'string' && v.length ? [v] : [];
 
 export default function ProfilePage() {
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
@@ -44,16 +45,19 @@ export default function ProfilePage() {
     const j: Me = await r.json();
     setMe(j);
 
-    const projects = (j.profile?.projects ?? []).map(pr => ({
+    const projects = (j.profile?.projects ?? []).map((pr) => ({
       ...pr,
       description: toStrArray((pr as any).description),
     }));
-    const experiences = (j.profile?.experiences ?? []).map(ex => ({
+    const experiences = (j.profile?.experiences ?? []).map((ex) => ({
       ...ex,
       description: toStrArray((ex as any).description),
     }));
 
     setP({
+      favoriteCompanies: Array.isArray(j.profile?.favoriteCompanies)
+        ? j.profile!.favoriteCompanies
+        : [],
       headline: j.profile?.headline ?? '',
       summary: j.profile?.summary ?? '',
       skills: j.profile?.skills ?? '',
@@ -62,7 +66,9 @@ export default function ProfilePage() {
     });
   }, [api]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function save() {
     setMsg(undefined);
@@ -79,13 +85,14 @@ export default function ProfilePage() {
 
   // ---- helpers for projects
   const setProj = (i: number, patch: Partial<Project>) =>
-    setP(prev => ({
+    setP((prev) => ({
       ...prev,
       projects: prev.projects.map((x, idx) => (idx === i ? { ...x, ...patch } : x)),
     }));
-  const addProj = () => setP(prev => ({ ...prev, projects: [...prev.projects, { name: '', description: [] }] }));
+  const addProj = () =>
+    setP((prev) => ({ ...prev, projects: [...prev.projects, { name: '', description: [] }] }));
   const rmProj = (i: number) =>
-    setP(prev => ({ ...prev, projects: prev.projects.filter((_, idx) => idx !== i) }));
+    setP((prev) => ({ ...prev, projects: prev.projects.filter((_, idx) => idx !== i) }));
 
   const addProjBullet = (i: number) =>
     setProj(i, { description: [...(p.projects[i].description ?? []), ''] });
@@ -100,17 +107,17 @@ export default function ProfilePage() {
 
   // ---- helpers for experiences
   const setExp = (i: number, patch: Partial<Experience>) =>
-    setP(prev => ({
+    setP((prev) => ({
       ...prev,
       experiences: prev.experiences.map((x, idx) => (idx === i ? { ...x, ...patch } : x)),
     }));
   const addExp = () =>
-    setP(prev => ({
+    setP((prev) => ({
       ...prev,
       experiences: [...prev.experiences, { company: '', title: '', description: [] }],
     }));
   const rmExp = (i: number) =>
-    setP(prev => ({ ...prev, experiences: prev.experiences.filter((_, idx) => idx !== i) }));
+    setP((prev) => ({ ...prev, experiences: prev.experiences.filter((_, idx) => idx !== i) }));
 
   const addExpBullet = (i: number) =>
     setExp(i, { description: [...(p.experiences[i].description ?? []), ''] });
@@ -131,6 +138,21 @@ export default function ProfilePage() {
       </div>
 
       <section className="space-y-3">
+        <textarea
+          className="w-full border rounded p-2 h-24 bg-transparent"
+          placeholder="Favorite Companies (One per line)"
+          value={(p.favoriteCompanies ?? []).join('\n')}
+          onChange={(e) =>
+            setP((prev) => ({
+              ...prev,
+              favoriteCompanies: e.target.value
+                .split(/\r?\n/) // Zeilen -> Array
+                .map((s) => s.trim())
+                .filter(Boolean), // leere Zeilen raus
+            }))
+          }
+        />
+
         <input
           className="w-full border rounded p-2 bg-transparent"
           placeholder="Headline"
@@ -155,7 +177,9 @@ export default function ProfilePage() {
       <section className="space-y-3">
         <div className="flex justify-between items-center">
           <h2 className="font-semibold">Projects</h2>
-          <button className="text-sm px-2 py-1 border rounded" onClick={addProj}>+ Add</button>
+          <button className="text-sm px-2 py-1 border rounded" onClick={addProj}>
+            + Add
+          </button>
         </div>
 
         {p.projects.map((proj, i) => (
@@ -182,7 +206,10 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Description bullets</h4>
-                <button className="text-sm px-2 py-1 border rounded" onClick={() => addProjBullet(i)}>
+                <button
+                  className="text-sm px-2 py-1 border rounded"
+                  onClick={() => addProjBullet(i)}
+                >
                   + Add bullet
                 </button>
               </div>
@@ -194,7 +221,10 @@ export default function ProfilePage() {
                     value={line}
                     onChange={(e) => setProjBullet(i, bi, e.target.value)}
                   />
-                  <button className="text-sm px-2 py-1 border rounded" onClick={() => rmProjBullet(i, bi)}>
+                  <button
+                    className="text-sm px-2 py-1 border rounded"
+                    onClick={() => rmProjBullet(i, bi)}
+                  >
                     Remove
                   </button>
                 </div>
@@ -217,7 +247,9 @@ export default function ProfilePage() {
       <section className="space-y-3">
         <div className="flex justify-between items-center">
           <h2 className="font-semibold">Experience</h2>
-          <button className="text-sm px-2 py-1 border rounded" onClick={addExp}>+ Add</button>
+          <button className="text-sm px-2 py-1 border rounded" onClick={addExp}>
+            + Add
+          </button>
         </div>
 
         {p.experiences.map((x, i) => (
@@ -259,7 +291,10 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Description bullets</h4>
-                <button className="text-sm px-2 py-1 border rounded" onClick={() => addExpBullet(i)}>
+                <button
+                  className="text-sm px-2 py-1 border rounded"
+                  onClick={() => addExpBullet(i)}
+                >
                   + Add bullet
                 </button>
               </div>
@@ -271,7 +306,10 @@ export default function ProfilePage() {
                     value={line}
                     onChange={(e) => setExpBullet(i, bi, e.target.value)}
                   />
-                  <button className="text-sm px-2 py-1 border rounded" onClick={() => rmExpBullet(i, bi)}>
+                  <button
+                    className="text-sm px-2 py-1 border rounded"
+                    onClick={() => rmExpBullet(i, bi)}
+                  >
                     Remove
                   </button>
                 </div>
@@ -291,7 +329,9 @@ export default function ProfilePage() {
       </section>
 
       <div className="flex items-center gap-3">
-        <button className="px-3 py-2 border rounded" onClick={save}>Save</button>
+        <button className="px-3 py-2 border rounded" onClick={save}>
+          Save
+        </button>
         {msg && <span className="text-sm text-gray-400">{msg}</span>}
       </div>
     </div>

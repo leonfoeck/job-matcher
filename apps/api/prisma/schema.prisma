@@ -46,6 +46,7 @@ model User {
   passwordHash  String
   createdAt     DateTime  @default(now())
   profile       Profile?
+  favorites     Company[]
 }
 
 model Profile {
