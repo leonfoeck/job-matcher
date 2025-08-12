@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { SimpleSelect as UiSelect } from './ui/SimpleSelect';
 import Link from 'next/link';
 import * as RSelect from '@radix-ui/react-select';
 
@@ -240,15 +241,15 @@ export default function JobsBrowser() {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="grid md:grid-cols-6 gap-4">
+      <div className="grid md:grid-cols-8 gap-4">
         <input
-          className="md:col-span-2 border rounded p-2 bg-transparent min-w-0"
+          className="md:col-span-3 border rounded p-2 bg-transparent min-w-0"
           placeholder="Filter by title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
         <input
-          className="md:col-span-2 border rounded p-2 bg-transparent min-w-0"
+          className="md:col-span-3 border rounded p-2 bg-transparent min-w-0"
           placeholder="Filter by company"
           value={company}
           onChange={(e) => setCompany(e.target.value)}
@@ -275,7 +276,7 @@ export default function JobsBrowser() {
           Only Working Student
         </label>
 
-        <div className="hidden md:block md:col-span-1" />
+        <div className="hidden md:block md:col-span-5" />
 
         {/* Sort */}
         <UiSelect
@@ -289,7 +290,7 @@ export default function JobsBrowser() {
             { value: 'company:asc', label: 'Company A–Z' },
           ]}
           placeholder="Sort by"
-          className="md:col-span-2 w-full min-w-0"
+          className="md:col-span-1 w-full min-w-0"
         />
 
         {/* Limit */}
@@ -298,7 +299,7 @@ export default function JobsBrowser() {
           onValueChange={(v) => setLimit(parseInt(v, 10))}
           options={[10, 20, 50, 100].map((n) => ({ value: String(n), label: `${n} / page` }))}
           placeholder="Items / page"
-          className="md:col-span-2 w-full min-w-0"
+          className="md:col-span-1 w-full min-w-0"
         />
       </div>
 

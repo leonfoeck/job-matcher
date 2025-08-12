@@ -168,15 +168,49 @@ export default function CvForJobPage() {
   // ——— Sanitizing für UI ———
   const allowedTags = useMemo(
     () => [
-      'h1','h2','h3','h4','p','br','strong','em','u',
-      'ul','ol','li','a','blockquote','code','pre','hr',
-      'table','thead','tbody','tr','th','td','colgroup','col',
-      'span','div','iframe'
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      'ul',
+      'ol',
+      'li',
+      'a',
+      'blockquote',
+      'code',
+      'pre',
+      'hr',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
+      'colgroup',
+      'col',
+      'span',
+      'div',
+      'iframe',
     ],
     [],
   );
   const allowedAttrs = useMemo(
-    () => ['href','title','target','rel','src','loading','allow','allowfullscreen','sandbox'],
+    () => [
+      'href',
+      'title',
+      'target',
+      'rel',
+      'src',
+      'loading',
+      'allow',
+      'allowfullscreen',
+      'sandbox',
+    ],
     [],
   );
 
@@ -186,8 +220,8 @@ export default function CvForJobPage() {
     return DOMPurify.sanitize(withEmbeds, {
       ALLOWED_TAGS: allowedTags,
       ALLOWED_ATTR: allowedAttrs,
-      FORBID_TAGS: ['style','script'],
-      FORBID_ATTR: ['style','onerror','onclick','onload'],
+      FORBID_TAGS: ['style', 'script'],
+      FORBID_ATTR: ['style', 'onerror', 'onclick', 'onload'],
       ALLOW_DATA_ATTR: false,
     });
   }, [job?.rawText, allowedTags, allowedAttrs]);
@@ -240,43 +274,34 @@ export default function CvForJobPage() {
   if (!job) return <div className="p-6">Job not found</div>;
 
   return (
-    <div className="grid md:grid-cols-2 gap-6 p-0">
-      {/* LEFT: Job details */}
-      <div className="space-y-4">
-        <button
-          className="text-sm opacity-70 underline"
-          onClick={() => router.back()}
-        >
-          &larr; Back
-        </button>
+    <div className="mx-auto w-full px-4 md:px-6 lg:px-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8">
+        {/* LEFT: Job details */}
+        <div className="space-y-4">
+          <button className="text-sm opacity-70 underline" onClick={() => router.back()}>
+            &larr; Back
+          </button>
 
-        <h1 className="text-2xl md:text-3xl font-bold leading-tight">
-          {job.title}
-        </h1>
+          <h1 className="text-2xl md:text-3xl font-bold leading-tight">{job.title}</h1>
 
-        <div className="text-sm text-gray-400">
-          {[job.company?.name, job.postedAt ? new Date(job.postedAt).toLocaleDateString() : '']
-            .filter(Boolean)
-            .join(' • ')}
-        </div>
+          <div className="text-sm text-gray-400">
+            {[job.company?.name, job.postedAt ? new Date(job.postedAt).toLocaleDateString() : '']
+              .filter(Boolean)
+              .join(' • ')}
+          </div>
 
-        {job.url && (
-          <a
-            className="underline text-sm"
-            href={job.url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open original posting ↗
-          </a>
-        )}
+          {job.url && (
+            <a className="underline text-sm" href={job.url} target="_blank" rel="noreferrer">
+              Open original posting ↗
+            </a>
+          )}
 
-        {/* Lesbarer HTML-Block (scrollable) */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 max-h-[70vh] overflow-auto">
-          {safeHtml ? (
-            <article
-              id="job-html"
-              className="
+          {/* Lesbarer HTML-Block (scrollable) */}
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 max-h-[70vh] overflow-auto">
+            {safeHtml ? (
+              <article
+                id="job-html"
+                className="
                 prose prose-invert prose-lg md:prose-xl max-w-none
                 prose-headings:font-semibold
                 prose-h2:mt-6 prose-h3:mt-4 prose-p:leading-relaxed
@@ -286,110 +311,123 @@ export default function CvForJobPage() {
                 prose-table:table-auto prose-th:font-semibold
                 [&_iframe]:w-full [&_iframe]:h-full
               "
-              dangerouslySetInnerHTML={{ __html: safeHtml }}
-            />
-          ) : (
-            <p className="text-sm opacity-90">No description available.</p>
-          )}
-        </div>
-      </div>
-
-      {/* RIGHT: pick experiences/projects & generate */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Build CV</h2>
-          <button className="px-3 py-2 border rounded" onClick={generatePdf}>
-            Generate PDF
-          </button>
-        </div>
-
-        {!me && (
-          <div className="text-sm text-yellow-400">
-            Not logged in — you can still generate, but your saved profile won’t load.{' '}
-            <a className="underline" href="/login">
-              Login
-            </a>
+                dangerouslySetInnerHTML={{ __html: safeHtml }}
+              />
+            ) : (
+              <p className="text-sm opacity-90">No description available.</p>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* Projects */}
-        <section>
-          <h3 className="font-semibold mb-2">Projects</h3>
-          {profile.projects.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              No projects. Add some in your <a className="underline" href="/profile">Profile</a>.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {profile.projects.map((p, i) => (
-                <li key={i} className="border rounded p-2 flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={!!pickProj[i]}
-                    onChange={(e) =>
-                      setPickProj(prev => prev.map((v, idx) => (idx === i ? e.target.checked : v)))
-                    }
-                  />
-                  <div>
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-sm text-gray-400">
-                      {[p.link, p.tech].filter(Boolean).join(' • ')}
-                    </div>
-                    {!!(p.description && p.description.length) && (
-                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
-                        {p.description.map((line, bi) => (
-                          <li key={bi}>{line}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {/* RIGHT: pick experiences/projects & generate */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Build CV</h2>
+            <button className="px-3 py-2 border rounded" onClick={generatePdf}>
+              Generate PDF
+            </button>
+          </div>
 
-        {/* Experience */}
-        <section>
-          <h3 className="font-semibold mb-2">Experience</h3>
-          {profile.experiences.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              No experience. Add some in your <a className="underline" href="/profile">Profile</a>.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {profile.experiences.map((x, i) => (
-                <li key={i} className="border rounded p-2 flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={pickExp[i]}
-                    onChange={(e) =>
-                      setPickExp(prev => prev.map((v, idx) => (idx === i ? e.target.checked : v)))
-                    }
-                  />
-                  <div>
-                    <div className="font-medium">
-                      {x.title} @ {x.company}
-                    </div>
-                    <div className="text-sm text-gray-400">
-                      {[x.start, x.end || 'Present'].filter(Boolean).join(' — ')}
-                    </div>
-                    {!!(x.description && x.description.length) && (
-                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
-                        {x.description.map((line, bi) => (
-                          <li key={bi}>{line}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {x.tech && <div className="text-xs text-gray-400 mt-1">Tech: {x.tech}</div>}
-                  </div>
-                </li>
-              ))}
-            </ul>
+          {!me && (
+            <div className="text-sm text-yellow-400">
+              Not logged in — you can still generate, but your saved profile won’t load.{' '}
+              <a className="underline" href="/login">
+                Login
+              </a>
+            </div>
           )}
-        </section>
+
+          {/* Projects */}
+          <section>
+            <h3 className="font-semibold mb-2">Projects</h3>
+            {profile.projects.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                No projects. Add some in your{' '}
+                <a className="underline" href="/profile">
+                  Profile
+                </a>
+                .
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {profile.projects.map((p, i) => (
+                  <li key={i} className="border rounded p-2 flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={!!pickProj[i]}
+                      onChange={(e) =>
+                        setPickProj((prev) =>
+                          prev.map((v, idx) => (idx === i ? e.target.checked : v)),
+                        )
+                      }
+                    />
+                    <div>
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-sm text-gray-400">
+                        {[p.link, p.tech].filter(Boolean).join(' • ')}
+                      </div>
+                      {!!(p.description && p.description.length) && (
+                        <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                          {p.description.map((line, bi) => (
+                            <li key={bi}>{line}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Experience */}
+          <section>
+            <h3 className="font-semibold mb-2">Experience</h3>
+            {profile.experiences.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                No experience. Add some in your{' '}
+                <a className="underline" href="/profile">
+                  Profile
+                </a>
+                .
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {profile.experiences.map((x, i) => (
+                  <li key={i} className="border rounded p-2 flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={pickExp[i]}
+                      onChange={(e) =>
+                        setPickExp((prev) =>
+                          prev.map((v, idx) => (idx === i ? e.target.checked : v)),
+                        )
+                      }
+                    />
+                    <div>
+                      <div className="font-medium">
+                        {x.title} @ {x.company}
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {[x.start, x.end || 'Present'].filter(Boolean).join(' — ')}
+                      </div>
+                      {!!(x.description && x.description.length) && (
+                        <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                          {x.description.map((line, bi) => (
+                            <li key={bi}>{line}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {x.tech && <div className="text-xs text-gray-400 mt-1">Tech: {x.tech}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

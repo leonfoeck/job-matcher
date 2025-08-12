@@ -39,7 +39,7 @@ export default function IngestForm({ onDone }: Readonly<IngestFormProps>) {
     <form onSubmit={onRun} className="space-y-3 border rounded p-4">
       <div>
         <label htmlFor="websites" className="block font-semibold mb-1">
-          Websites (one per line aligned)
+          Websites (one per line)
         </label>
         <textarea
           id="websites"
@@ -55,7 +55,10 @@ export default function IngestForm({ onDone }: Readonly<IngestFormProps>) {
         {loading ? 'Fetching…' : 'Fetch jobs'}
       </button>
       {result !== null && (
-        <pre className="whitespace-pre-wrap text-sm bg-gray-50 border rounded p-2 overflow-auto">
+        <pre
+          className="whitespace-pre-wrap text-sm rounded p-3 overflow-auto
+                   bg-white/5 border border-white/10 text-zinc-100 font-mono max-h-72"
+        >
           {JSON.stringify(result, null, 2)}
         </pre>
       )}

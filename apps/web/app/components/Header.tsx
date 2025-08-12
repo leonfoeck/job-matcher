@@ -8,7 +8,7 @@ export default async function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-700 bg-black/50 backdrop-blur supports-[backdrop-filter]:bg-black/40">
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="font-bold">
           Job Matcher
         </Link>

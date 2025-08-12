@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-black text-white flex flex-col`}
     >
     <Header />
-    <main className="max-w-5xl mx-auto p-6 flex-1">{children}</main>
+    <main className="mx-auto w-full p-6 flex-1">{children}</main>
     <Footer />
     </body>
     </html>

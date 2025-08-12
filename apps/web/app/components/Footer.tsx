@@ -3,7 +3,7 @@ export default function Footer() {
 
   return (
     <footer className="border-t border-gray-700 bg-black/40 mt-12">
-      <div className="max-w-5xl mx-auto px-4 py-8 text-sm text-gray-400 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="max-w-screen-2xl mx-auto px-4 py-8 text-sm text-gray-400 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <p>© {year} Job Matcher</p>
         <nav className="flex flex-wrap gap-4">
           <a
